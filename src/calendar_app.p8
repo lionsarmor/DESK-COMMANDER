@@ -1,0 +1,543 @@
+%import conv
+%import gfx_lores
+%import input
+%import strings
+%import theme
+
+; -----------------------------------------------------------------------------
+; Calendar application
+; -----------------------------------------------------------------------------
+;
+; Events are kept in a small in-memory appointment book. Each record stores a
+; year, month, day, type, and short title. This lets month navigation work like
+; a real calendar without spending too much of the X16's memory during alpha.
+
+calendar_app {
+    const ubyte EVENT_NONE = 0
+    const ubyte EVENT_APPOINTMENT = 1
+    const ubyte EVENT_TASK = 2
+    const ubyte EVENT_PERSONAL = 3
+    const ubyte NO_EVENT_SLOT = 255
+    const ubyte MAX_EVENTS = 24
+
+    bool initialized
+    ubyte current_month
+    uword current_year
+    ; Sunday is 0, Monday is 1, and so on.
+    ubyte first_weekday
+    ubyte selected_day
+    ubyte[24] event_months
+    ubyte[24] event_days
+    ubyte[24] event_types
+    uword[24] event_years
+    ; Twenty bytes per event: nineteen visible characters plus the zero ending.
+    ; Prog8 limits an array to 256 bytes, so titles use three small banks.
+    ubyte[160] event_titles_1_8
+    ubyte[160] event_titles_9_16
+    ubyte[160] event_titles_17_24
+
+    sub initialize() {
+        if initialized
+            return
+
+        current_month = 9
+        current_year = 2026
+        first_weekday = 2       ; September 1, 2026 is a Tuesday.
+        selected_day = 5
+
+        ; A few examples make the color language visible on first launch.
+        create_sample_event(0, 5, EVENT_APPOINTMENT, iso:"DENTIST AT 10 AM")
+        create_sample_event(1, 12, EVENT_TASK, iso:"FINISH ROADMAP")
+        create_sample_event(2, 21, EVENT_PERSONAL, iso:"DINNER WITH ALEX")
+        create_sample_event(3, 30, EVENT_APPOINTMENT, iso:"PROJECT MEETING")
+
+        initialized = true
+    }
+
+    sub create_sample_event(ubyte slot, ubyte day, ubyte event_type, str title) {
+        event_months[slot] = 9
+        event_days[slot] = day
+        event_types[slot] = event_type
+        event_years[slot] = 2026
+        void strings.copy(title, title_for_slot(slot))
+    }
+
+    sub title_for_slot(ubyte slot) -> str {
+        ; Fixed-size records make finding a title inexpensive on an 8-bit
+        ; machine. Each branch returns the address of that event's record.
+        uword offset
+
+        if slot < 8 {
+            offset = slot as uword * 20
+            return &event_titles_1_8 + offset
+        }
+        if slot < 16 {
+            offset = (slot - 8) as uword * 20
+            return &event_titles_9_16 + offset
+        }
+
+        offset = (slot - 16) as uword * 20
+        return &event_titles_17_24 + offset
+    }
+
+    sub event_slot_for(ubyte day) -> ubyte {
+        ubyte slot
+
+        for slot in 0 to MAX_EVENTS - 1 {
+            if event_types[slot] != EVENT_NONE and
+               event_months[slot] == current_month and
+               event_days[slot] == day and
+               event_years[slot] == current_year
+                return slot
+        }
+        return NO_EVENT_SLOT
+    }
+
+    sub event_type_for_day(ubyte day) -> ubyte {
+        ; The desktop's at-a-glance calendar uses this small public query.
+        ; Keeping the record lookup here means both calendar views always read
+        ; exactly the same event data.
+        ubyte slot = event_slot_for(day)
+
+        if slot == NO_EVENT_SLOT
+            return EVENT_NONE
+        return event_types[slot]
+    }
+
+    sub available_event_slot() -> ubyte {
+        ubyte slot
+
+        for slot in 0 to MAX_EVENTS - 1 {
+            if event_types[slot] == EVENT_NONE
+                return slot
+        }
+        return NO_EVENT_SLOT
+    }
+
+    sub ensure_selected_event(ubyte event_type) -> ubyte {
+        ubyte slot = event_slot_for(selected_day)
+
+        if slot == NO_EVENT_SLOT {
+            slot = available_event_slot()
+            if slot == NO_EVENT_SLOT
+                return slot
+
+            event_months[slot] = current_month
+            event_days[slot] = selected_day
+            event_years[slot] = current_year
+            @(title_for_slot(slot)) = 0
+        }
+
+        event_types[slot] = event_type
+        return slot
+    }
+
+    sub color_for_event(ubyte event_type) -> ubyte {
+        when event_type {
+            EVENT_APPOINTMENT -> return theme.RED
+            EVENT_TASK -> return theme.BLUE
+            EVENT_PERSONAL -> return theme.GREEN
+        }
+        return theme.PAPER
+    }
+
+    sub days_in_month() -> ubyte {
+        when current_month {
+            2 -> {
+                ; Gregorian leap-year rule. The next century edge is far away,
+                ; but handling it correctly costs very little here.
+                if current_year % 400 == 0
+                    return 29
+                if current_year % 100 == 0
+                    return 28
+                if current_year % 4 == 0
+                    return 29
+                return 28
+            }
+            4 -> return 30
+            6 -> return 30
+            9 -> return 30
+            11 -> return 30
+        }
+        return 31
+    }
+
+    sub draw_month_name(uword x, ubyte y, ubyte color) {
+        when current_month {
+            1 -> gfx_lores.text(x, y, color, iso:"JANUARY")
+            2 -> gfx_lores.text(x, y, color, iso:"FEBRUARY")
+            3 -> gfx_lores.text(x, y, color, iso:"MARCH")
+            4 -> gfx_lores.text(x, y, color, iso:"APRIL")
+            5 -> gfx_lores.text(x, y, color, iso:"MAY")
+            6 -> gfx_lores.text(x, y, color, iso:"JUNE")
+            7 -> gfx_lores.text(x, y, color, iso:"JULY")
+            8 -> gfx_lores.text(x, y, color, iso:"AUGUST")
+            9 -> gfx_lores.text(x, y, color, iso:"SEPTEMBER")
+            10 -> gfx_lores.text(x, y, color, iso:"OCTOBER")
+            11 -> gfx_lores.text(x, y, color, iso:"NOVEMBER")
+            12 -> gfx_lores.text(x, y, color, iso:"DECEMBER")
+        }
+    }
+
+    sub draw_month_heading() {
+        ; Compact arrow buttons leave enough room for even SEPTEMBER 2026.
+        gfx_lores.fillrect(40, 54, 15, 15, theme.BLUE)
+        gfx_lores.text(44, 57, theme.PAPER, iso:"<")
+        draw_month_name(59, 57, theme.INK)
+        gfx_lores.text(135, 57, theme.INK, conv.str_uw(current_year))
+        gfx_lores.fillrect(175, 54, 15, 15, theme.BLUE)
+        gfx_lores.text(179, 57, theme.PAPER, iso:">")
+    }
+
+    sub previous_month() {
+        ubyte previous_days
+
+        if current_month == 1 {
+            current_month = 12
+            current_year--
+        } else
+            current_month--
+
+        previous_days = days_in_month()
+        first_weekday = (first_weekday + 7 - previous_days % 7) % 7
+        selected_day = 1
+    }
+
+    sub next_month() {
+        ubyte old_days = days_in_month()
+
+        first_weekday = (first_weekday + old_days % 7) % 7
+        if current_month == 12 {
+            current_month = 1
+            current_year++
+        } else
+            current_month++
+        selected_day = 1
+    }
+
+    sub draw_window() {
+        ubyte day
+
+        gfx_lores.fillrect(35, 35, 255, 176, theme.INK)
+        gfx_lores.fillrect(32, 32, 255, 176, theme.PAPER)
+        gfx_lores.rect(32, 32, 255, 176, theme.INK)
+
+        gfx_lores.fillrect(33, 33, 253, 16, theme.BLUE)
+        gfx_lores.text(40, 37, theme.PAPER, iso:"CALENDAR")
+        gfx_lores.fillrect(266, 35, 15, 12, theme.RED)
+        gfx_lores.text(270, 37, theme.PAPER, iso:"X")
+
+        draw_month_heading()
+        draw_weekday_headings()
+
+        for day in 1 to days_in_month()
+            draw_day(day)
+
+        draw_legend()
+        draw_event_panel()
+
+        gfx_lores.fillrect(229, 184, 49, 16, theme.INK)
+        gfx_lores.fillrect(227, 182, 49, 16, theme.PAPER)
+        gfx_lores.rect(227, 182, 49, 16, theme.BLUE)
+        gfx_lores.text(235, 186, theme.INK, iso:"DONE")
+    }
+
+    sub draw_weekday_headings() {
+        gfx_lores.text(47, 69, theme.BLUE, iso:"S")
+        gfx_lores.text(68, 69, theme.BLUE, iso:"M")
+        gfx_lores.text(89, 69, theme.BLUE, iso:"T")
+        gfx_lores.text(110, 69, theme.BLUE, iso:"W")
+        gfx_lores.text(131, 69, theme.BLUE, iso:"T")
+        gfx_lores.text(152, 69, theme.BLUE, iso:"F")
+        gfx_lores.text(173, 69, theme.BLUE, iso:"S")
+    }
+
+    sub draw_day(ubyte day) {
+        ubyte calendar_slot = first_weekday + day - 1
+        ubyte column = calendar_slot % 7
+        ubyte row = calendar_slot / 7
+        uword x = 41 + column * 21
+        ubyte y = 78 + row * 16
+        ubyte event_slot = event_slot_for(day)
+        ubyte event_type = EVENT_NONE
+
+        if event_slot != NO_EVENT_SLOT
+            event_type = event_types[event_slot]
+
+        ubyte face_color = color_for_event(event_type)
+        ubyte text_color = theme.INK
+
+        if event_type != EVENT_NONE
+            text_color = theme.PAPER
+
+        gfx_lores.fillrect(x, y, 20, 15, face_color)
+        gfx_lores.rect(x, y, 20, 15, theme.SOFT_BLUE)
+        gfx_lores.text(x + 2, y + 3, text_color, conv.str_ub(day))
+
+        ; Gold selection edge remains visible over every event color.
+        if day == selected_day
+            gfx_lores.rect(x, y, 20, 15, theme.GOLD)
+    }
+
+    sub draw_legend() {
+        gfx_lores.fillrect(42, 176, 7, 7, theme.RED)
+        gfx_lores.text(52, 175, theme.INK, iso:"APPT")
+        gfx_lores.fillrect(89, 176, 7, 7, theme.BLUE)
+        gfx_lores.text(99, 175, theme.INK, iso:"TASK")
+        gfx_lores.fillrect(136, 176, 7, 7, theme.GREEN)
+        gfx_lores.text(146, 175, theme.INK, iso:"PERSONAL")
+    }
+
+    sub draw_event_panel() {
+        ubyte event_slot = event_slot_for(selected_day)
+        ubyte event_type = EVENT_NONE
+
+        if event_slot != NO_EVENT_SLOT
+            event_type = event_types[event_slot]
+
+        gfx_lores.fillrect(193, 57, 85, 119, theme.NAVY)
+        gfx_lores.text(201, 62, theme.SOFT_BLUE, iso:"SELECTED")
+        gfx_lores.text(201, 75, theme.PAPER, iso:"DAY")
+        gfx_lores.text(241, 75, theme.PAPER, conv.str_ub(selected_day))
+
+        when event_type {
+            EVENT_NONE -> gfx_lores.text(201, 88, theme.PAPER, iso:"NO EVENT")
+            EVENT_APPOINTMENT -> gfx_lores.text(201, 88, theme.RED, iso:"APPOINT")
+            EVENT_TASK -> gfx_lores.text(201, 88, theme.SOFT_BLUE, iso:"TASK")
+            EVENT_PERSONAL -> gfx_lores.text(201, 88, theme.GREEN, iso:"PERSONAL")
+        }
+
+        draw_event_button(198, 104, theme.RED, iso:"APPT")
+        draw_event_button(198, 123, theme.BLUE, iso:"TASK")
+        draw_event_button(198, 142, theme.GREEN, iso:"PERSONAL")
+        draw_event_button(198, 161, theme.PAPER, iso:"REMOVE")
+    }
+
+    sub draw_event_button(uword x, ubyte y, ubyte color, str label) {
+        gfx_lores.fillrect(x, y, 74, 15, color)
+        gfx_lores.rect(x, y, 74, 15, theme.PAPER)
+        gfx_lores.text(x + 7, y + 4, theme.INK, label)
+    }
+
+    sub day_at_pointer() -> ubyte {
+        ubyte day
+        ubyte slot
+        ubyte column
+        ubyte row
+        uword x
+        ubyte y
+
+        for day in 1 to 31 {
+            if day > days_in_month()
+                return 0
+
+            slot = first_weekday + day - 1
+            column = slot % 7
+            row = slot / 7
+            x = 41 + column * 21
+            y = 78 + row * 16
+
+            if input.inside(x, y, 20, 15)
+                return day
+        }
+        return 0
+    }
+
+    sub set_selected_event_type(ubyte event_type) {
+        ubyte event_slot = ensure_selected_event(event_type)
+
+        if event_slot == NO_EVENT_SLOT
+            return
+
+        ; New events receive a useful starting title. The user can immediately
+        ; replace it in the Event Details window.
+        if strings.length(title_for_slot(event_slot)) == 0 {
+            when event_type {
+                EVENT_APPOINTMENT -> void strings.copy(iso:"NEW APPOINTMENT", title_for_slot(event_slot))
+                EVENT_TASK -> void strings.copy(iso:"NEW TASK", title_for_slot(event_slot))
+                EVENT_PERSONAL -> void strings.copy(iso:"PERSONAL EVENT", title_for_slot(event_slot))
+            }
+        }
+    }
+
+    sub remove_selected_event() {
+        ubyte event_slot = event_slot_for(selected_day)
+
+        if event_slot != NO_EVENT_SLOT {
+            event_types[event_slot] = EVENT_NONE
+            @(title_for_slot(event_slot)) = 0
+        }
+    }
+
+    sub draw_event_editor() {
+        ubyte event_slot = event_slot_for(selected_day)
+        ubyte event_type = EVENT_NONE
+
+        if event_slot != NO_EVENT_SLOT
+            event_type = event_types[event_slot]
+
+        ; This smaller window sits above the month view, making the connection
+        ; between the clicked date and its event obvious.
+        gfx_lores.fillrect(61, 61, 210, 132, theme.INK)
+        gfx_lores.fillrect(58, 58, 210, 132, theme.PAPER)
+        gfx_lores.rect(58, 58, 210, 132, theme.INK)
+
+        gfx_lores.fillrect(59, 59, 208, 16, theme.BLUE)
+        gfx_lores.text(66, 63, theme.PAPER, iso:"EVENT DETAILS")
+        gfx_lores.fillrect(247, 61, 15, 12, theme.RED)
+        gfx_lores.text(251, 63, theme.PAPER, iso:"X")
+
+        draw_month_name(70, 81, theme.BLUE)
+        gfx_lores.text(153, 81, theme.INK, conv.str_ub(selected_day))
+
+        ; Editable title field
+        gfx_lores.fillrect(69, 94, 188, 22, theme.INK)
+        gfx_lores.fillrect(72, 97, 182, 16, theme.PAPER)
+        if event_slot == NO_EVENT_SLOT
+            gfx_lores.text(77, 101, theme.SOFT_BLUE, iso:"TYPE EVENT NAME")
+        else
+            gfx_lores.text(77, 101, theme.INK, title_for_slot(event_slot))
+
+        gfx_lores.text(70, 119, theme.BLUE, iso:"TYPE")
+        draw_editor_type_button(70, 130, 54, theme.RED, iso:"APPT",
+                                event_type == EVENT_APPOINTMENT)
+        draw_editor_type_button(129, 130, 54, theme.BLUE, iso:"TASK",
+                                event_type == EVENT_TASK)
+        draw_editor_type_button(188, 130, 68, theme.GREEN, iso:"PERSON",
+                                event_type == EVENT_PERSONAL)
+
+        draw_editor_action(70, 162, 67, iso:"DELETE")
+        draw_editor_action(193, 162, 63, iso:"DONE")
+    }
+
+    sub draw_editor_type_button(uword x, ubyte y, ubyte width, ubyte color,
+                                str label, bool selected) {
+        gfx_lores.fillrect(x, y, width, 19, color)
+        if selected
+            gfx_lores.rect(x, y, width, 19, theme.GOLD)
+        else
+            gfx_lores.rect(x, y, width, 19, theme.INK)
+        gfx_lores.text(x + 7, y + 6, theme.INK, label)
+    }
+
+    sub draw_editor_action(uword x, ubyte y, ubyte width, str label) {
+        gfx_lores.fillrect(x + 2, y + 2, width, 18, theme.INK)
+        gfx_lores.fillrect(x, y, width, 18, theme.PAPER)
+        gfx_lores.rect(x, y, width, 18, theme.BLUE)
+        gfx_lores.text(x + 8, y + 5, theme.INK, label)
+    }
+
+    sub edit_event_title(ubyte key) {
+        ubyte event_slot = event_slot_for(selected_day)
+        ubyte length = 0
+
+        if event_slot != NO_EVENT_SLOT
+            length = strings.length(title_for_slot(event_slot))
+
+        if key == $14 {
+            if length > 0
+                @(title_for_slot(event_slot) + length - 1) = 0
+            return
+        }
+
+        if key >= 32 and key <= 126 and length < 19 {
+            if event_slot == NO_EVENT_SLOT
+                event_slot = ensure_selected_event(EVENT_PERSONAL)
+
+            if event_slot == NO_EVENT_SLOT
+                return
+
+            @(title_for_slot(event_slot) + length) = key
+            @(title_for_slot(event_slot) + length + 1) = 0
+
+            ; Typing into an empty day creates a personal event by default.
+            ; The colored type buttons can change that with one click.
+            if event_types[event_slot] == EVENT_NONE
+                event_types[event_slot] = EVENT_PERSONAL
+        }
+    }
+
+    sub open_event_editor() {
+        bool close_editor = false
+
+        draw_event_editor()
+
+        do {
+            sys.waitvsync()
+            input.poll()
+
+            if input.left_pressed() {
+                if input.inside(70, 130, 54, 19) {
+                    set_selected_event_type(EVENT_APPOINTMENT)
+                    draw_event_editor()
+                } else if input.inside(129, 130, 54, 19) {
+                    set_selected_event_type(EVENT_TASK)
+                    draw_event_editor()
+                } else if input.inside(188, 130, 68, 19) {
+                    set_selected_event_type(EVENT_PERSONAL)
+                    draw_event_editor()
+                } else if input.inside(70, 162, 67, 18) {
+                    remove_selected_event()
+                    draw_event_editor()
+                } else if input.inside(193, 162, 63, 18) or
+                          input.inside(247, 61, 15, 12) {
+                    close_editor = true
+                }
+            }
+
+            if input.key != 0 and input.key != $1b {
+                edit_event_title(input.key)
+                draw_event_editor()
+            }
+        } until close_editor or input.key == $1b
+
+        ; Do not let Escape leak into the month window and close both layers.
+        input.key = 0
+    }
+
+    sub open() {
+        bool close_window = false
+        ubyte clicked_day
+
+        initialize()
+        draw_window()
+
+        do {
+            sys.waitvsync()
+            input.poll()
+
+            if input.left_pressed() {
+                clicked_day = day_at_pointer()
+
+                if input.inside(40, 54, 15, 15) {
+                    previous_month()
+                    draw_window()
+                } else if input.inside(175, 54, 15, 15) {
+                    next_month()
+                    draw_window()
+                ; Clicking any date, including a colored one, displays its
+                ; current event in a small editable details window.
+                } else if clicked_day != 0 {
+                    selected_day = clicked_day
+                    open_event_editor()
+                    draw_window()
+                } else if input.inside(198, 104, 74, 15) {
+                    set_selected_event_type(EVENT_APPOINTMENT)
+                    draw_window()
+                } else if input.inside(198, 123, 74, 15) {
+                    set_selected_event_type(EVENT_TASK)
+                    draw_window()
+                } else if input.inside(198, 142, 74, 15) {
+                    set_selected_event_type(EVENT_PERSONAL)
+                    draw_window()
+                } else if input.inside(198, 161, 74, 15) {
+                    remove_selected_event()
+                    draw_window()
+                } else if input.inside(266, 35, 15, 12) or
+                          input.inside(227, 182, 49, 16) {
+                    close_window = true
+                }
+            }
+        } until close_window or input.key == $1b
+    }
+}
