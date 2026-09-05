@@ -53,14 +53,20 @@ notes_app {
 
         gfx_lores.text(41, 59, theme.BLUE, iso:"SELECT A NOTE, THEN TYPE")
 
-        draw_note_row(75, 1, note_one, note_one_active)
-        draw_note_row(99, 2, note_two, note_two_active)
-        draw_note_row(123, 3, note_three, note_three_active)
-        draw_note_row(147, 4, note_four, note_four_active)
+        draw_note_rows()
 
         draw_button(41, 179, 55, iso:"ADD")
         draw_button(104, 179, 68, iso:"DELETE")
         draw_button(220, 179, 58, iso:"DONE")
+    }
+
+    sub draw_note_rows() {
+        ; Editing a note only repaints these four rows. The frame, title bar,
+        ; instructions, and buttons remain untouched and therefore steady.
+        draw_note_row(75, 1, note_one, note_one_active)
+        draw_note_row(99, 2, note_two, note_two_active)
+        draw_note_row(123, 3, note_three, note_three_active)
+        draw_note_row(147, 4, note_four, note_four_active)
     }
 
     sub draw_note_row(ubyte y, ubyte number, str note, bool active) {
@@ -188,13 +194,13 @@ notes_app {
 
                 if clicked_note != 0 {
                     selected_note = clicked_note
-                    draw_window()
+                    draw_note_rows()
                 } else if input.inside(41, 179, 55, 16) {
                     add_note()
-                    draw_window()
+                    draw_note_rows()
                 } else if input.inside(104, 179, 68, 16) {
                     delete_selected_note()
-                    draw_window()
+                    draw_note_rows()
                 } else if input.inside(220, 179, 58, 16) or
                           input.inside(266, 39, 15, 12) {
                     close_window = true
@@ -203,7 +209,7 @@ notes_app {
 
             if input.key != 0 and input.key != $1b and selected_note != 0 {
                 edit_selected_note(input.key)
-                draw_window()
+                draw_note_rows()
             }
         } until close_window or input.key == $1b
     }

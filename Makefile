@@ -35,6 +35,7 @@ $(PROGRAM): $(SOURCES) | $(BUILD_DIR)
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
 		-target cx16 \
+		-varshigh 1 \
 		-srcdirs "$(SOURCE_DIR)" \
 		-out "$(BUILD_DIR)" \
 		-asmlist \
@@ -47,6 +48,7 @@ check:
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
 		-target cx16 \
+		-varshigh 1 \
 		-srcdirs "$(SOURCE_DIR)" \
 		-check \
 		"$(SOURCE_DIR)/main.p8"
