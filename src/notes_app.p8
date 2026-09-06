@@ -1,5 +1,6 @@
 %import gfx_lores
 %import input
+%import state_data
 %import strings
 %import theme
 
@@ -7,36 +8,59 @@
 ; Notes application
 ; -----------------------------------------------------------------------------
 ;
-; V1 starts with four short in-memory notes. This is intentionally small and
-; easy to understand. A later storage milestone can replace these buffers with
-; disk-backed records without changing the window or input behavior.
+; Six short notes live in the shared SD-backed state image. Four are visible at
+; once; the wheel, cursor keys, and scrollbar move through the complete list.
 
 notes_app {
     bool initialized
-    bool note_one_active
-    bool note_two_active
-    bool note_three_active
-    bool note_four_active
-
     ubyte selected_note
-    ubyte[29] note_one
-    ubyte[29] note_two
-    ubyte[29] note_three
-    ubyte[29] note_four
+    const ubyte NOTE_COUNT = 6
+    const ubyte VISIBLE_ROWS = 4
+    const ubyte NOTE_SIZE = 22
+    ubyte scroll_offset
+    ubyte[6] note_active
+    ubyte[132] note_text
+
+    sub note_buffer(ubyte number) -> str {
+        return &note_text + ((number - 1) as uword) * NOTE_SIZE
+    }
+
+    sub save_state() {
+        ; Notes executes from bank 11, so copy bytes to VERA here while this
+        ; bank is visible. A bank-10 bulk copier cannot see bank-11 variables.
+        ubyte index
+        state_data.write(state_data.NOTES, $a8)
+        for index in 0 to 5
+            state_data.write(state_data.NOTES + 1 + index, note_active[index])
+        for index in 0 to 131
+            state_data.write(state_data.NOTES + 7 + index, note_text[index])
+        state_data.save()
+    }
 
     sub initialize() {
         if initialized
             return
 
-        void strings.copy(iso:"PLAN DESK COMMANDER V1", note_one)
-        void strings.copy(iso:"TRY CALENDAR COLORS", note_two)
-        void strings.copy(iso:"BUILD FILE MANAGER", note_three)
-
-        note_one_active = true
-        note_two_active = true
-        note_three_active = true
-        note_four_active = false
+        if state_data.read(state_data.NOTES) == $a8 {
+            ubyte index
+            for index in 0 to 5
+                note_active[index] = state_data.read(state_data.NOTES + 1 + index)
+            for index in 0 to 131
+                note_text[index] = state_data.read(state_data.NOTES + 7 + index)
+        } else {
+            void strings.copy(iso:"PLAN DESK COMMANDER", note_buffer(1))
+            void strings.copy(iso:"TRY CALENDAR COLORS", note_buffer(2))
+            void strings.copy(iso:"BUILD FILE MANAGER", note_buffer(3))
+            note_active[0] = 1
+            note_active[1] = 1
+            note_active[2] = 1
+            note_active[3] = 0
+            note_active[4] = 0
+            note_active[5] = 0
+            save_state()
+        }
         selected_note = 1
+        scroll_offset = 0
         initialized = true
     }
 
@@ -54,6 +78,7 @@ notes_app {
         gfx_lores.text(41, 59, theme.BLUE, iso:"SELECT A NOTE, THEN TYPE")
 
         draw_note_rows()
+        draw_scrollbar()
 
         draw_button(41, 179, 55, iso:"ADD")
         draw_button(104, 179, 68, iso:"DELETE")
@@ -63,10 +88,13 @@ notes_app {
     sub draw_note_rows() {
         ; Editing a note only repaints these four rows. The frame, title bar,
         ; instructions, and buttons remain untouched and therefore steady.
-        draw_note_row(75, 1, note_one, note_one_active)
-        draw_note_row(99, 2, note_two, note_two_active)
-        draw_note_row(123, 3, note_three, note_three_active)
-        draw_note_row(147, 4, note_four, note_four_active)
+        ubyte row
+        ubyte number
+        for row in 0 to VISIBLE_ROWS - 1 {
+            number = scroll_offset + row + 1
+            draw_note_row(75 + row * 24, number, note_buffer(number),
+                          note_active[number - 1] != 0)
+        }
     }
 
     sub draw_note_row(ubyte y, ubyte number, str note, bool active) {
@@ -78,15 +106,24 @@ notes_app {
             text_color = theme.NAVY
         }
 
-        gfx_lores.fillrect(41, y, 237, 20, face_color)
-        gfx_lores.rect(41, y, 237, 20, theme.BLUE)
+        gfx_lores.fillrect(41, y, 220, 20, face_color)
+        gfx_lores.rect(41, y, 220, 20, theme.BLUE)
 
         if active {
             gfx_lores.fillrect(47, y + 6, 7, 7, theme.BLUE)
             gfx_lores.text(61, y + 6, text_color, note)
-        } else {
+        } else if number == selected_note
+            gfx_lores.text(61, y + 6, theme.NAVY, iso:"EMPTY NOTE")
+        else
             gfx_lores.text(61, y + 6, theme.SOFT_BLUE, iso:"EMPTY NOTE")
-        }
+    }
+
+    sub draw_scrollbar() {
+        ; With six notes and four visible rows, the thumb has three stable
+        ; positions. Repainting only this narrow strip keeps scrolling calm.
+        gfx_lores.fillrect(266, 75, 12, 92, theme.SOFT_BLUE)
+        gfx_lores.rect(266, 75, 12, 92, theme.BLUE)
+        gfx_lores.fillrect(268, 77 + scroll_offset * 23, 8, 42, theme.BLUE)
     }
 
     sub draw_button(uword x, ubyte y, ubyte width, str label) {
@@ -97,66 +134,66 @@ notes_app {
     }
 
     sub note_at_pointer() -> ubyte {
-        if input.inside(41, 75, 237, 20)
-            return 1
-        if input.inside(41, 99, 237, 20)
-            return 2
-        if input.inside(41, 123, 237, 20)
-            return 3
-        if input.inside(41, 147, 237, 20)
-            return 4
+        if input.inside(41, 75, 220, 92)
+            return scroll_offset + ((input.mouse_y - 75) / 24) as ubyte + 1
         return 0
+    }
+
+    sub keep_selected_visible() {
+        if selected_note <= scroll_offset
+            scroll_offset = selected_note - 1
+        else if selected_note > scroll_offset + VISIBLE_ROWS
+            scroll_offset = selected_note - VISIBLE_ROWS
+    }
+
+    sub scroll_up() {
+        if scroll_offset > 0
+            scroll_offset--
+    }
+
+    sub scroll_down() {
+        if scroll_offset < NOTE_COUNT - VISIBLE_ROWS
+            scroll_offset++
+    }
+
+    sub move_selection(bool down) {
+        if down and selected_note < NOTE_COUNT
+            selected_note++
+        else if not down and selected_note > 1
+            selected_note--
+        keep_selected_visible()
     }
 
     sub add_note() {
         ; Reuse the first empty slot and immediately place keyboard focus there.
-        if note_one_active == false {
-            note_one[0] = 0
-            note_one_active = true
-            selected_note = 1
-        } else if note_two_active == false {
-            note_two[0] = 0
-            note_two_active = true
-            selected_note = 2
-        } else if note_three_active == false {
-            note_three[0] = 0
-            note_three_active = true
-            selected_note = 3
-        } else if note_four_active == false {
-            note_four[0] = 0
-            note_four_active = true
-            selected_note = 4
+        ubyte slot
+        uword buffer
+        for slot in 0 to NOTE_COUNT - 1 {
+            if note_active[slot] == 0 {
+                buffer = note_buffer(slot + 1)
+                buffer[0] = 0
+                note_active[slot] = 1
+                selected_note = slot + 1
+                keep_selected_visible()
+                return
+            }
         }
     }
 
     sub delete_selected_note() {
-        when selected_note {
-            1 -> {
-                note_one[0] = 0
-                note_one_active = false
-            }
-            2 -> {
-                note_two[0] = 0
-                note_two_active = false
-            }
-            3 -> {
-                note_three[0] = 0
-                note_three_active = false
-            }
-            4 -> {
-                note_four[0] = 0
-                note_four_active = false
-            }
+        if selected_note > 0 {
+            uword buffer = note_buffer(selected_note)
+            buffer[0] = 0
+            note_active[selected_note - 1] = 0
         }
         selected_note = 0
     }
 
     sub edit_selected_note(ubyte key) {
-        when selected_note {
-            1 -> edit_buffer(note_one, key)
-            2 -> edit_buffer(note_two, key)
-            3 -> edit_buffer(note_three, key)
-            4 -> edit_buffer(note_four, key)
+        if selected_note > 0 {
+            if key >= 32 and key <= 126
+                note_active[selected_note - 1] = 1
+            edit_buffer(note_buffer(selected_note), key)
         }
     }
 
@@ -172,7 +209,7 @@ notes_app {
 
         ; Short printable notes fit the width of one row. Return simply ends
         ; the current typing action; clicking another row changes focus.
-        if key >= 32 and key <= 126 and length < 27 {
+        if key >= 32 and key <= 126 and length < NOTE_SIZE - 1 {
             buffer[length] = key
             buffer[length + 1] = 0
         }
@@ -181,6 +218,7 @@ notes_app {
     sub open() {
         bool close_window = false
         ubyte clicked_note
+        ubyte old_offset
 
         initialize()
         draw_window()
@@ -198,6 +236,7 @@ notes_app {
                 } else if input.inside(41, 179, 55, 16) {
                     add_note()
                     draw_note_rows()
+                    draw_scrollbar()
                 } else if input.inside(104, 179, 68, 16) {
                     delete_selected_note()
                     draw_note_rows()
@@ -207,10 +246,37 @@ notes_app {
                 }
             }
 
-            if input.key != 0 and input.key != $1b and selected_note != 0 {
+            if input.wheel > 0 {
+                old_offset = scroll_offset
+                scroll_up()
+                if old_offset != scroll_offset {
+                    draw_note_rows()
+                    draw_scrollbar()
+                }
+            } else if input.wheel < 0 {
+                old_offset = scroll_offset
+                scroll_down()
+                if old_offset != scroll_offset {
+                    draw_note_rows()
+                    draw_scrollbar()
+                }
+            }
+
+            if input.key == $11 {
+                move_selection(true)
+                draw_note_rows()
+                draw_scrollbar()
+            } else if input.key == $91 {
+                move_selection(false)
+                draw_note_rows()
+                draw_scrollbar()
+            } else if input.key != 0 and input.key != $1b and selected_note != 0 {
                 edit_selected_note(input.key)
                 draw_note_rows()
             }
         } until close_window or input.key == $1b
+
+        ; Committing on app close avoids writing the SD card for every keypress.
+        save_state()
     }
 }

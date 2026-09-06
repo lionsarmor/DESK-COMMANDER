@@ -1,4 +1,5 @@
 %import palette
+%import state_data
 
 ; -----------------------------------------------------------------------------
 ; Shared DESK COMMANDER colors
@@ -24,6 +25,11 @@ theme {
 
     ubyte current_package
 
+    sub save() {
+        state_data.write(state_data.THEME_PACKAGE, current_package)
+        state_data.save()
+    }
+
     sub install_palette() {
         when current_package {
             0 -> install_commander_palette()
@@ -38,6 +44,7 @@ theme {
         if current_package == PACKAGE_COUNT
             current_package = 0
         install_palette()
+        save()
     }
 
     sub install_commander_palette() {

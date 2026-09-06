@@ -1,5 +1,6 @@
 %import syslib
 %import preferences
+%import state_data
 %import theme
 
 ; -----------------------------------------------------------------------------
@@ -43,6 +44,11 @@ input {
     byte wheel
     ubyte mouse_preset
 
+    sub save_preferences() {
+        state_data.write(state_data.MOUSE_PRESET, mouse_preset)
+        state_data.save()
+    }
+
     sub enable_mouse() {
         ; Shape 1 is the default Commander X16 pointer. mouse_config2 also reads
         ; the current display dimensions, so call this after changing modes.
@@ -69,6 +75,7 @@ input {
         if mouse_preset == MOUSE_PRESET_COUNT
             mouse_preset = 0
         apply_mouse_preset()
+        save_preferences()
     }
 
     sub apply_mouse_preset() {

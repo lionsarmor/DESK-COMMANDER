@@ -1,5 +1,6 @@
 %import gfx_lores
 %import input
+%import state_data
 %import strings
 %import theme
 
@@ -7,9 +8,9 @@
 ; Rolodex application
 ; -----------------------------------------------------------------------------
 ;
-; This alpha keeps ten sample contacts in the program. Typing filters the list
-; immediately, while the mouse wheel or cursor keys move through the results.
-; The simple data functions below can later be replaced by disk-backed cards.
+; This alpha keeps ten read-only sample contact cards in the program. Typing
+; filters immediately; the wheel and cursor keys scroll. Active/deleted flags
+; persist, while fully editable disk-backed contact records remain V1 work.
 
 rolodex_app {
     const ubyte CONTACT_COUNT = 10
@@ -28,11 +29,24 @@ rolodex_app {
         if initialized
             return
 
-        ; Sample cards make the alpha easy to evaluate. The release build will
-        ; start with empty user data and offer a separate demo-data option.
-        for contact in 0 to CONTACT_COUNT - 1
-            contact_active[contact] = 1
+        if state_data.read(state_data.ROLODEX) == $a5 {
+            state_data.restore(state_data.ROLODEX + 1, &contact_active,
+                               CONTACT_COUNT)
+        } else {
+            ; Sample cards make the alpha easy to evaluate. The release build
+            ; will start blank and offer a separate demo-data option.
+            for contact in 0 to CONTACT_COUNT - 1
+                contact_active[contact] = 1
+            save_state()
+        }
         initialized = true
+    }
+
+    sub save_state() {
+        state_data.write(state_data.ROLODEX, $a5)
+        state_data.store(&contact_active, state_data.ROLODEX + 1,
+                         CONTACT_COUNT)
+        state_data.save()
     }
 
     sub contact_name(ubyte contact) -> str {
@@ -190,11 +204,6 @@ rolodex_app {
     }
 
     sub draw_window() {
-        ubyte row
-        ubyte contact
-        ubyte y
-        ubyte selected_contact = contact_at_result(selected_result)
-
         gfx_lores.fillrect(27, 31, 269, 181, theme.INK)
         gfx_lores.fillrect(24, 28, 269, 181, theme.PAPER)
         gfx_lores.rect(24, 28, 269, 181, theme.INK)
@@ -206,17 +215,34 @@ rolodex_app {
 
         ; Search is always active: type at any time to narrow the list.
         gfx_lores.text(34, 51, theme.BLUE, iso:"SEARCH")
+        draw_search_field()
+
+        gfx_lores.text(34, 75, theme.BLUE, iso:"CONTACTS")
+        gfx_lores.text(160, 75, theme.BLUE, iso:"CARD")
+
+        draw_results()
+
+        gfx_lores.text(34, 196, theme.SOFT_BLUE, iso:"WHEEL/ARROWS")
+        draw_action_button(158, 191, 60, iso:"DELETE", theme.RED)
+        draw_action_button(231, 191, 49, iso:"DONE", theme.BLUE)
+    }
+
+    sub draw_search_field() {
         gfx_lores.fillrect(83, 49, 198, 19, theme.INK)
         gfx_lores.fillrect(86, 52, 192, 13, theme.PAPER)
         if strings.length(search_text) == 0
             gfx_lores.text(90, 55, theme.SOFT_BLUE, iso:"NAME EMAIL @HANDLE")
         else
             gfx_lores.text(90, 55, theme.INK, search_text)
+    }
 
-        gfx_lores.text(34, 75, theme.BLUE, iso:"CONTACTS")
-        gfx_lores.text(160, 75, theme.BLUE, iso:"CARD")
+    sub draw_results() {
+        ubyte row
+        ubyte contact
+        ubyte y
 
-        ; Five visible rows keep the type large and readable.
+        ; Only repaint the changing list, thumb, and card. The window frame,
+        ; search box, and buttons stay untouched while the user scrolls.
         for row in 0 to VISIBLE_ROWS - 1 {
             contact = contact_at_result(scroll_offset + row)
             y = 87 + row * 21
@@ -224,11 +250,7 @@ rolodex_app {
         }
 
         draw_scrollbar()
-        draw_contact_card(selected_contact)
-
-        gfx_lores.text(34, 196, theme.SOFT_BLUE, iso:"WHEEL/ARROWS")
-        draw_action_button(158, 191, 60, iso:"DELETE", theme.RED)
-        draw_action_button(231, 191, 49, iso:"DONE", theme.BLUE)
+        draw_contact_card(contact_at_result(selected_result))
     }
 
     sub draw_contact_row(ubyte y, ubyte contact, bool selected) {
@@ -362,6 +384,8 @@ rolodex_app {
         bool close_window = false
         ubyte clicked_row
         ubyte clicked_contact
+        ubyte old_offset
+        ubyte old_selection
 
         initialize()
         search_text[0] = 0
@@ -379,12 +403,12 @@ rolodex_app {
                         clicked_contact = contact_at_result(scroll_offset + clicked_row)
                         if clicked_contact != NO_CONTACT {
                             selected_result = scroll_offset + clicked_row
-                            draw_window()
+                            draw_results()
                         }
                     }
                 } else if input.inside(158, 191, 60, 14) {
                     delete_selected_contact()
-                    draw_window()
+                    draw_results()
                 } else if input.inside(231, 191, 49, 14) or
                           input.inside(272, 31, 15, 12) {
                     close_window = true
@@ -392,25 +416,36 @@ rolodex_app {
             }
 
             if input.wheel > 0 {
+                old_offset = scroll_offset
                 scroll_up()
-                draw_window()
+                if scroll_offset != old_offset
+                    draw_results()
             } else if input.wheel < 0 {
+                old_offset = scroll_offset
                 scroll_down()
-                draw_window()
+                if scroll_offset != old_offset
+                    draw_results()
             }
 
             ; PETSCII cursor-down is $11; cursor-up is $91.
             if input.key == $11 {
+                old_selection = selected_result
                 move_down()
-                draw_window()
+                if selected_result != old_selection
+                    draw_results()
             } else if input.key == $91 {
+                old_selection = selected_result
                 move_up()
-                draw_window()
+                if selected_result != old_selection
+                    draw_results()
             } else if input.key != 0 and input.key != $1b {
                 edit_search(input.key)
-                draw_window()
+                draw_search_field()
+                draw_results()
             }
         } until close_window or input.key == $1b
+
+        save_state()
 
         ; Escape closes Rolodex without also exiting the desktop.
         input.key = 0

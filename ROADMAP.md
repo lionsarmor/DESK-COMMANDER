@@ -4,15 +4,25 @@
 
 ## Current status
 
-**Version:** 0.2.0 alpha  
-**Toolchain:** Prog8 12.3.2, 64tass 1.60.3243, X16 ROM/emulator r49  
-**Display:** 320×240, 256-color VERA bitmap  
+**Version:** 0.3.0 alpha
+
+**Toolchain:** Prog8 12.3.2, 64tass 1.60.3243, X16 ROM/emulator r49
+
+**Display:** 320×240, 256-color VERA bitmap
+
 **Launch:** `./run.sh`
 
-The visual shell and several interaction prototypes work, but personal data is
-still memory-only. File operations, real networking, reminders, printing, and
-release packaging are unfinished. Alpha builds intentionally contain sample
-records; V1 must start blank unless the user explicitly enables demo data.
+**Last reviewed:** September 6, 2026
+
+The visual shell and several interaction prototypes work, and a versioned
+device-8 state image now survives normal restarts. DESK COMMANDER has now
+booted and run successfully on a physical Commander X16. General text-file
+opening/editing works and the physical TexElec UART is detected at `$9FE0`, but
+ZiModem does not yet answer the alpha's strict `ATI4` probe. Fixing that modem
+transport is the immediate P0 priority; connected apps, reminders, printing,
+and release packaging remain unfinished. Alpha builds intentionally contain
+sample records; V1 must start blank unless the user explicitly enables demo
+data.
 
 Status marks used below:
 
@@ -34,36 +44,62 @@ buttons, and Settings page are the intended interface.
 
 ### Release priorities
 
-1. Protect the user's data.
-2. Make mouse and keyboard operation equally dependable.
-3. Finish the organizer applications before expanding their scope.
-4. Support the TexElec Commander X16 Serial & ESP32 Network Card through a
-   shared networking service for Comms and Market Watch.
-5. Remain responsive and readable on real X16 hardware.
+1. Fix ZiModem communication on the detected physical TexElec card.
+2. Protect the user's data and survive interrupted SD-card writes.
+3. Make mouse and keyboard operation equally dependable.
+4. Finish the organizer applications before expanding their scope.
+5. Share the stable network service between Comms and Market Watch.
+6. Remain responsive and readable during long real-hardware sessions.
 
 ## What works today
 
 | Area | Status | Current alpha behavior |
 |---|---:|---|
-| Build and launch | ✅ | Pinned local toolchain, `make`, `make check`, and `./run.sh` |
+| Build and launch | ✅ | Pinned toolchain plus confirmed SD-card launch on a physical Commander X16 |
 | Splash and branding | ✅ | Native VERA splash, version, creator, keyboard/mouse dismissal |
-| Desktop | ✅ | Icon rail, Notes/Calendar glance cards, Market Watch demo, RTC clock |
+| Desktop | ✅ | Icon rail, Notes/Calendar glance cards, rotating Market Watch cache, RTC clock, sound/Wi-Fi indicators |
 | Mouse | ✅ | Hardware pointer, click edges, hit testing, three themed pointer styles |
 | Keyboard | 🟡 | Desktop arrow selection and app-specific keys work; universal focus does not |
-| Rendering | 🟡 | Dirty-region redraws reduce blinking; more real-hardware testing is needed |
-| Notes | 🟡 | Four short editable in-memory notes with Add and Delete |
-| Calendar | 🟡 | Month navigation and 24 editable, color-coded in-memory events |
-| Rolodex | 🟡 | Search, scrolling, contact details, and Delete over demo contacts |
+| Rendering | 🟡 | Desktop and apps render on physical hardware; long-session and edge-case testing remains |
+| Notes | 🟡 | Six short saved notes with Add, Delete, wheel/arrow scrolling, and scrollbar |
+| Calendar | 🟡 | Month navigation and 24 editable, color-coded saved events |
+| Rolodex | 🟡 | Search, dirty-region scrolling, contact details, and persistent deletion state over demo contacts |
 | Calculator | ✅ | Mouse and keyboard arithmetic, decimals, backspace, and divide-by-zero handling |
-| File Manager | 🟡 | Complete visual window; disk operations are placeholders |
-| Settings | 🟡 | Theme, pointer, sound, and clock work in memory; Network and About open |
+| File Manager | 🟡 | Device-8 listing, file/folder icons, scrollbar/wheel paging, double-click Open, New File/Folder, Rename, Move, and confirmed Delete |
+| Text Editor ++ | 🟡 | 2 KB multiline editor with pointer placement, Save, Save As, dirty state, and clean return to Files |
+| Settings | 🟡 | Theme, pointer, sound, and clock persist; Network and About open |
 | Comms | 🟡 | Full-screen direct/server chat mockup with selection and presence colors |
-| Market Watch | 🟡 | Clearly labeled static demonstration quotes |
-| TexElec network | 🟡 | Accurate setup page; hardware detection and ZiModem commands are not wired |
-| Persistence | ⬜ | Notes, events, contacts, preferences, and app state are not saved |
+| Market Watch | 🟡 | Saved 12-symbol watchlist, Finnhub HTTPS quotes, cached values, and 30-second three-row rotation |
+| TexElec network | 🟡 | Physical UART probe succeeds at `$9FE0`; ZiModem response currently fails, blocking Wi-Fi and connected apps |
+| Persistence | 🟡 | Versioned `DCSTATE.BIN` preserves relevant alpha state after normal shutdown; atomic recovery remains |
 | Printing and clipboard | ⬜ | Not implemented |
 
 ## Unfinished V1 work
+
+### 0. P0 — Restore physical ZiModem communication
+
+This is the top priority. Do not expand Comms or Market Watch networking until
+this acceptance sequence works on the physical card.
+
+- [ ] Run the official ROMTERM at `$9FE0`, 115200 baud, 8N1, and RTS/CTS; record
+      the exact working configuration and ZiModem firmware reported by `ATI`.
+- [ ] Compare ROMTERM's UART initialization with `network_driver.p8`, including
+      divisor, FIFO, modem-control, CTS/RTS polarity, and Option Pin A state.
+- [ ] Force a known ZiModem command state before identification: command mode,
+      responses enabled, verbose replies, ASCII translation, and known line endings.
+- [ ] Accept both verbose `OK` and terse numeric `0` success replies.
+- [ ] Detect and explain quiet mode, unexpected baud, stream mode, PETSCII mode,
+      transmit timeout, receive timeout, and malformed responses.
+- [ ] Show a bounded raw-response diagnostic view instead of replacing every
+      failure with `ZIMODEM DID NOT ANSWER`.
+- [ ] Add selectable baud rates for recovery, while keeping 115200 the default.
+- [ ] Verify `ATI4`, Wi-Fi scan, join, saved configuration, IP status, DNS ping,
+      reconnect after restart, and recovery after Wi-Fi loss.
+- [ ] Verify ZiModem HTTPS download and one Finnhub quote on the physical card.
+- [ ] Run sustained transfers and confirm the mouse, clock, sound, and screen do
+      not freeze or corrupt while UART traffic is active.
+- [ ] If ROMTERM also fails, check card revision/riser hardware and follow
+      TexElec's pre-October-2024 replacement guidance before changing app code.
 
 ### 1. Shared input and interface
 
@@ -83,21 +119,28 @@ buttons, and Settings page are the intended interface.
 ### 2. Desktop shell
 
 - [ ] Replace hard-coded glance-note samples with the user's real Notes data.
-- [ ] Replace demo market values with cached network results.
-- [ ] Add useful offline, loading, stale-data, and error states to Market Watch.
-- [ ] Preserve the last selected app and desktop preferences after restart.
+- [x] Replace demo market values with cached network results.
+- [ ] Expand the current offline/error display with loading, timestamps, rate-limit, and richer stale-data states.
+- [x] Preserve desktop theme, pointer, sound, and clock preferences after restart.
+- [ ] Decide whether restoring the last selected desktop section improves startup.
 - [ ] Make every launcher and glance panel keyboard reachable.
 - [ ] Add consistent return-to-desktop behavior and unsaved-work checks.
-- [ ] Decide whether the top bar should show date, alarm, and network-status indicators.
+- [x] Show compact sound and last-known Wi-Fi status indicators in the top bar.
+- [ ] Decide whether the top bar should also show date and alarm indicators.
 
 ### 3. Storage and file safety
 
-- [ ] Build a small CMDR-DOS/KERNAL file service.
-- [ ] Enumerate directories and drives instead of displaying sample rows.
-- [ ] Implement directory navigation and file-type filtering.
-- [ ] Implement New, Open, Save, Save As, Rename, Copy, and Delete.
+- [x] Build a small CMDR-DOS/KERNAL file service for device 8.
+- [x] Enumerate real directory entries instead of displaying sample rows.
+- [x] Implement paged directory navigation.
+- [x] Implement New Folder, Rename, and confirmed file/empty-folder Delete.
+- [x] Implement New File with user-selected names and extensions.
+- [x] Implement same-volume Move using CMDR-DOS rename-to-path behavior.
+- [x] Implement general file Open plus Text Editor ++ Save and Save As.
+- [ ] Implement Copy and optional file-type filtering/default-app rules.
+- [ ] Add destination browsing to Move instead of requiring a typed path.
 - [ ] Confirm destructive operations and explain failures in plain language.
-- [ ] Define versioned native formats for preferences, notes, calendar, and contacts.
+- [x] Define a versioned bounded state image for preferences, notes, calendar, contacts, network, and market data.
 - [ ] Use temporary-file writes before replacing the last known-good file.
 - [ ] Keep a recoverable backup for important organizer data.
 - [ ] Reject unknown/newer formats without modifying them.
@@ -107,8 +150,8 @@ buttons, and Settings page are the intended interface.
 
 ### 4. Notes
 
-- [ ] Replace the four fixed 28-character records with a scalable saved-note format.
-- [ ] Add note titles, longer bodies, multiline editing, and viewport scrolling.
+- [x] Expand the short-note list to six saved records with a four-row scrolling viewport.
+- [ ] Add note titles, longer bodies, and multiline body editing.
 - [ ] Add New, Open, Save, Save As, Rename, and Delete confirmation.
 - [ ] Track dirty notes and warn before discarding edits.
 - [ ] Add word wrap, Find, and at least one-level Undo.
@@ -126,7 +169,7 @@ buttons, and Settings page are the intended interface.
 - [ ] Add daily, weekly, monthly, and yearly recurrence.
 - [ ] Add reminder times and visible/audible alarm dialogs.
 - [ ] Poll alarms safely while any application is open.
-- [ ] Persist and reload events; rebuild the at-a-glance highlights from saved data.
+- [x] Persist and reload events; rebuild the at-a-glance highlights from saved data.
 - [ ] Add capacity-full and invalid-date messages.
 - [ ] Test leap years, month/year boundaries, recurrence, and midnight rollover.
 
@@ -152,38 +195,42 @@ buttons, and Settings page are the intended interface.
 
 ### 8. Settings and preferences
 
-- [ ] Save theme, cursor style, sound, and 12/24-hour selection.
-- [ ] Apply saved settings before the splash/desktop becomes visible.
+- [x] Save theme, cursor style, sound, and 12/24-hour selection.
+- [x] Apply saved settings before the splash/desktop becomes visible.
 - [ ] Add keyboard focus and activation inside Settings and its dialogs.
 - [ ] Add a Restore Defaults action with confirmation.
 - [ ] Decide whether Storage needs a separate settings page after File Manager works.
-- [ ] Add network card address and connection settings described below.
-- [ ] Keep About version/copyright text synchronized with release metadata.
+- [x] Add the default card address and connection controls described below.
+- [x] Keep About and splash version/copyright text synchronized through `appmeta.p8`.
 
 ### 9. TexElec X16 Serial & ESP32 networking
 
 Target hardware: [TexElec Commander X16 921.6Kbps Serial & ESP32 Network Card](https://texelec.com/product/commander-x16-serial-network-card/), using its preinstalled [ZiModem firmware](https://github.com/bozimmerman/Zimodem).
 
-- [ ] Implement TL16C2550/16450-compatible UART register access.
-- [ ] Probe the default network UART at IO7-low `$9FE0` without hanging when absent.
+- [x] Implement TL16C2550/16450-compatible UART register access.
+- [x] Probe the default network UART at IO7-low `$9FE0` without hanging when absent.
 - [ ] Allow manual selection of the card's other DIP-switch I/O ranges.
-- [ ] Initialize the network port at 115200 baud with RTS/CTS flow control.
-- [ ] Keep ZiModem option pin A high as required for normal command/stream behavior.
+- [x] Initialize the network port at 115200 baud with RTS/CTS flow control.
+- [x] Keep ZiModem option pin A high as required for normal command/stream behavior.
 - [ ] Build bounded transmit/receive ring buffers and line parsing.
-- [ ] Add timeouts, cancellation, overflow handling, and modem-response logging.
-- [ ] Use `ATI` to identify the modem and expose firmware/version information.
-- [ ] Use `ATW` to scan and display access points with signal/security indicators.
-- [ ] Add SSID selection and a masked password field.
-- [ ] Connect with the appropriate `ATW"SSID,PASSWORD"` command.
-- [ ] Read connection, IP, and router state with the relevant `ATI` commands.
+- [ ] Add cancellation, a response log, and stronger overflow/error handling beyond the current bounded timeouts.
+- [x] Use `ATI4` to identify ZiModem and read its firmware/version response.
+- [ ] Make the identification probe tolerate/reset saved ZiModem modes and
+      succeed on the physically detected card.
+- [ ] Expand the working `ATW5` scan response into selectable access points with parsed signal/security indicators.
+- [x] Add manual SSID entry and a masked password field.
+- [x] Connect with the appropriate `ATW"SSID,PASSWORD"` command.
+- [x] Remember the last successful SSID and last-confirmed link indicator without storing the password.
+- [ ] Expand the working `ATI2` IP check to show router and richer connection state.
 - [ ] Test connectivity using ZiModem's ping facility.
 - [ ] Save successful modem configuration with `AT&W` only after confirmation.
-- [ ] Never save or display the Wi-Fi password in DESK COMMANDER's own plain-text files.
-- [ ] Provide clear Card Missing, Modem Not Ready, Wi-Fi Failed, DNS Failed,
+- [x] Never save or display the Wi-Fi password in DESK COMMANDER's own plain-text files.
+- [ ] Complete clear Card Missing, Modem Not Ready, Wi-Fi Failed, DNS Failed,
       Timed Out, and Offline states.
 - [ ] Expose one shared connection API to Comms and Market Watch.
-- [ ] Preserve/restore X16 RAM-bank state around network operations.
-- [ ] 🔬 Test the current revised TexElec card on real hardware at sustained traffic rates.
+- [x] Preserve/restore X16 RAM-bank state around the loadable Network Setup app.
+- [ ] 🔬 Re-test the revised TexElec card at sustained traffic rates. Current
+      hardware result: UART detected at `$9FE0`; ZiModem did not answer.
 
 ### 10. Comms
 
@@ -201,14 +248,15 @@ Target hardware: [TexElec Commander X16 921.6Kbps Serial & ESP32 Network Card](h
 
 ### 11. Market Watch
 
-- [ ] Choose and document a lightweight market-data endpoint and its terms/rate limits.
-- [ ] Confirm the endpoint/protocol works through ZiModem on the X16.
-- [ ] Add a small editable symbol watchlist.
-- [ ] Fetch and parse symbol, last price, change, and update time.
-- [ ] Cache the last valid result and mark it stale when offline.
-- [ ] Add manual refresh plus a conservative automatic refresh interval.
+- [x] Choose and document Finnhub's compact quote endpoint; users supply keys subject to their own plan limits.
+- [ ] 🔬 Confirm ZiModem HTTPS and the Finnhub endpoint on the physical TexElec card.
+- [x] Add a saved 12-symbol watchlist with Add and Delete; default to GOOG, MSFT, and TSLA.
+- [x] Fetch and parse symbol, last price, and percentage change.
+- [x] Cache the latest result in VERA RAM and show explicit offline values on failure.
+- [x] Add manual three-quote refresh and rotate cached desktop groups every 30 seconds without extra requests.
+- [ ] Add quote timestamps and an optional conservative automatic network-refresh interval.
 - [ ] Handle malformed replies, unavailable symbols, rate limits, and long values.
-- [ ] Label delayed/demo data honestly; never present it as trading guidance.
+- [x] Label potentially delayed data honestly and document that it is not trading guidance.
 - [ ] Keep the desktop glance view readable when fewer or more symbols are configured.
 
 ### 12. Shared clipboard and printing
@@ -222,7 +270,7 @@ Target hardware: [TexElec Commander X16 921.6Kbps Serial & ESP32 Network Card](h
 
 ### 13. Documentation, packaging, and release
 
-- [ ] Write installation instructions for emulator and SD-card use.
+- [x] Write installation instructions for emulator and SD-card use.
 - [ ] Document every keyboard shortcut and mouse action.
 - [ ] Document data locations, formats, backup, recovery, and upgrades.
 - [ ] Document TexElec card DIP-switch, antenna, Wi-Fi, and troubleshooting steps.
@@ -230,7 +278,8 @@ Target hardware: [TexElec Commander X16 921.6Kbps Serial & ESP32 Network Card](h
 - [ ] Add automated smoke checks where practical and a manual regression checklist.
 - [ ] Test minimum/current supported ROMs and record the final requirement.
 - [ ] Test clean first run, upgrade, missing data, demo data, and corrupt data.
-- [ ] Produce emulator-ready and SD-card-ready release archives.
+- [x] Produce an SD-card-ready runtime folder with `make sdcard`.
+- [ ] Produce signed/versioned release archives.
 - [ ] Publish known limitations and tag a reproducible V1 source/binary release.
 
 ## Milestones
@@ -263,6 +312,8 @@ journey works on emulator and hardware.
 Detect and initialize the TexElec card, configure Wi-Fi through ZiModem, and expose a
 non-blocking shared connection service. Exit when the app can reconnect after restart,
 report its IP/status, and recover cleanly from absent hardware or lost Wi-Fi.
+The physical UART-detection half is confirmed; modem command/response is the active
+P0 blocker for completing this milestone.
 
 ### M5 — Connected applications
 
@@ -292,7 +343,7 @@ A first-time user must be able to:
 5. Edit and delete those records with confirmations where destructive.
 6. Receive a visible and audible calendar reminder.
 7. Navigate every required workflow by keyboard and normal workflows by mouse.
-8. Browse, rename, copy, and delete a file safely.
+8. Create, open, edit, move, copy, rename, and delete a file safely.
 9. Recover the last known-good data after a simulated interrupted save.
 10. Detect the TexElec card, configure Wi-Fi, reconnect, and report network status.
 11. Refresh Market Watch and send/receive one Comms message without freezing the UI.
@@ -302,6 +353,8 @@ A first-time user must be able to:
 
 V1 does not ship until:
 
+- The physical TexElec card completes ZiModem detect, Wi-Fi join, IP/DNS, and
+  HTTPS tests using the documented default configuration.
 - No known defect can silently corrupt or discard user data.
 - Production first run contains no personal/demo records by default.
 - No visible V1 control is a nonfunctional placeholder.
@@ -322,11 +375,15 @@ V1 does not ship until:
 - Alpha ROM target: **Commander X16 r49**
 - Graphics: **320×240, 256-color VERA bitmap**
 - Program load area: conventional RAM below the X16 I/O window
-- Mutable application state: **high-RAM bank 1** via Prog8 `-varshigh 1`
+- Persistent application state: **2 KB versioned image in VERA bank 1**, saved as `DCSTATE.BIN`
 - Network card: **TexElec Commander X16 Serial & ESP32 Network Card**
 - Network firmware/API: **ZiModem AT commands over the card's network UART**
 - Default network UART: **IO7-low `$9FE0`, 115200 baud, RTS/CTS**
 - Window model: one foreground app/overlay beneath the persistent top bar
+- Loadable apps: Files in bank 4, file operations in bank 5, editor in bank 6,
+  Network Setup in bank 7, Market Watch in bank 8, quote fetching in bank 9,
+  persistence in bank 10, Notes in bank 11, and Comms in bank 12
+- Text buffer: 2 KB in VERA RAM for the current alpha
 - Desktop navigation: icon rail and glance panels; no decorative menu strip
 
 ## Deferred beyond V1

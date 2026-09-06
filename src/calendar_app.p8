@@ -1,16 +1,18 @@
 %import conv
 %import gfx_lores
 %import input
+%import state_data
 %import strings
+%import syslib
 %import theme
 
 ; -----------------------------------------------------------------------------
 ; Calendar application
 ; -----------------------------------------------------------------------------
 ;
-; Events are kept in a small in-memory appointment book. Each record stores a
-; year, month, day, type, and short title. This lets month navigation work like
-; a real calendar without spending too much of the X16's memory during alpha.
+; The working set is a bounded appointment book: each record stores a year,
+; month, day, type, and short title. Arrays live in RAM while the app is open;
+; save_state() mirrors them into the device-8 persistent state image.
 
 calendar_app {
     const ubyte EVENT_NONE = 0
@@ -30,26 +32,55 @@ calendar_app {
     ubyte[24] event_days
     ubyte[24] event_types
     uword[24] event_years
-    ; Twenty bytes per event: nineteen visible characters plus the zero ending.
-    ; Prog8 limits an array to 256 bytes, so titles use three small banks.
-    ubyte[160] event_titles_1_8
-    ubyte[160] event_titles_9_16
-    ubyte[160] event_titles_17_24
+    ; Titles live directly in the shared VERA state image: twenty bytes per
+    ; event, nineteen visible characters plus the zero ending.
+    ubyte[20] event_title_buffer
+
+    sub load_state() {
+        state_data.transfer_memory_5 = &current_month
+        state_data.transfer_memory_6 = &current_year
+        state_data.transfer_memory_7 = &first_weekday
+        state_data.transfer_memory_8 = &selected_day
+        state_data.transfer_memory = &event_months
+        state_data.transfer_memory_2 = &event_days
+        state_data.transfer_memory_3 = &event_types
+        state_data.transfer_memory_4 = &event_years
+        state_data.restore_calendar_arrays()
+    }
+
+    sub save_state() {
+        state_data.write(state_data.CALENDAR, $a5)
+        state_data.transfer_memory_5 = &current_month
+        state_data.transfer_memory_6 = &current_year
+        state_data.transfer_memory_7 = &first_weekday
+        state_data.transfer_memory_8 = &selected_day
+        state_data.transfer_memory = &event_months
+        state_data.transfer_memory_2 = &event_days
+        state_data.transfer_memory_3 = &event_types
+        state_data.transfer_memory_4 = &event_years
+        state_data.store_calendar_arrays()
+        state_data.save()
+    }
 
     sub initialize() {
         if initialized
             return
 
-        current_month = 9
-        current_year = 2026
-        first_weekday = 2       ; September 1, 2026 is a Tuesday.
-        selected_day = 5
+        if state_data.read(state_data.CALENDAR) == $a5
+            load_state()
+        else {
+            current_month = 9
+            current_year = 2026
+            first_weekday = 2       ; September 1, 2026 is a Tuesday.
+            selected_day = 5
 
-        ; A few examples make the color language visible on first launch.
-        create_sample_event(0, 5, EVENT_APPOINTMENT, iso:"DENTIST AT 10 AM")
-        create_sample_event(1, 12, EVENT_TASK, iso:"FINISH ROADMAP")
-        create_sample_event(2, 21, EVENT_PERSONAL, iso:"DINNER WITH ALEX")
-        create_sample_event(3, 30, EVENT_APPOINTMENT, iso:"PROJECT MEETING")
+            ; A few examples make the color language visible on first launch.
+            create_sample_event(0, 5, EVENT_APPOINTMENT, iso:"DENTIST AT 10 AM")
+            create_sample_event(1, 12, EVENT_TASK, iso:"FINISH ROADMAP")
+            create_sample_event(2, 21, EVENT_PERSONAL, iso:"DINNER WITH ALEX")
+            create_sample_event(3, 30, EVENT_APPOINTMENT, iso:"PROJECT MEETING")
+            save_state()
+        }
 
         initialized = true
     }
@@ -59,25 +90,53 @@ calendar_app {
         event_days[slot] = day
         event_types[slot] = event_type
         event_years[slot] = 2026
-        void strings.copy(title, title_for_slot(slot))
+        copy_event_title(slot, title)
     }
 
     sub title_for_slot(ubyte slot) -> str {
-        ; Fixed-size records make finding a title inexpensive on an 8-bit
-        ; machine. Each branch returns the address of that event's record.
-        uword offset
+        return state_data.CALENDAR + 126 + (slot as uword) * 20
+    }
 
-        if slot < 8 {
-            offset = slot as uword * 20
-            return &event_titles_1_8 + offset
-        }
-        if slot < 16 {
-            offset = (slot - 8) as uword * 20
-            return &event_titles_9_16 + offset
-        }
+    ; Bank switching stays inside these tiny helpers. Code and ordinary app
+    ; variables remain visible in bank 0 everywhere else.
+    sub copy_event_title(ubyte slot, str source) {
+        uword destination = title_for_slot(slot)
+        ubyte index = 0
 
-        offset = (slot - 16) as uword * 20
-        return &event_titles_17_24 + offset
+        while source[index] != 0 and index < 19 {
+            state_data.write(destination + index, source[index])
+            index++
+        }
+        state_data.write(destination + index, 0)
+    }
+
+    sub event_title_length(ubyte slot) -> ubyte {
+        uword title = title_for_slot(slot)
+        ubyte length = 0
+
+        while state_data.read(title + length) != 0 and length < 19
+            length++
+        return length
+    }
+
+    sub clear_event_title(ubyte slot) {
+        uword title = title_for_slot(slot)
+
+        state_data.write(title, 0)
+    }
+
+    sub set_event_title_character(ubyte slot, ubyte index, ubyte value) {
+        uword title = title_for_slot(slot)
+
+        state_data.write(title + index, value)
+    }
+
+    sub draw_event_title(ubyte slot) {
+        ubyte index
+        uword title = title_for_slot(slot)
+        for index in 0 to 19
+            event_title_buffer[index] = state_data.read(title + index)
+        gfx_lores.text(77, 101, theme.INK, event_title_buffer)
     }
 
     sub event_slot_for(ubyte day) -> ubyte {
@@ -125,7 +184,7 @@ calendar_app {
             event_months[slot] = current_month
             event_days[slot] = selected_day
             event_years[slot] = current_year
-            @(title_for_slot(slot)) = 0
+            clear_event_title(slot)
         }
 
         event_types[slot] = event_type
@@ -181,12 +240,12 @@ calendar_app {
 
     sub draw_month_heading() {
         ; Compact arrow buttons leave enough room for even SEPTEMBER 2026.
-        gfx_lores.fillrect(40, 54, 15, 15, theme.BLUE)
-        gfx_lores.text(44, 57, theme.PAPER, iso:"<")
-        draw_month_name(59, 57, theme.INK)
-        gfx_lores.text(135, 57, theme.INK, conv.str_uw(current_year))
-        gfx_lores.fillrect(175, 54, 15, 15, theme.BLUE)
-        gfx_lores.text(179, 57, theme.PAPER, iso:">")
+        gfx_lores.fillrect(40, 52, 15, 15, theme.BLUE)
+        gfx_lores.text(44, 55, theme.PAPER, iso:"<")
+        draw_month_name(59, 55, theme.INK)
+        gfx_lores.text(135, 55, theme.INK, conv.str_uw(current_year))
+        gfx_lores.fillrect(175, 52, 15, 15, theme.BLUE)
+        gfx_lores.text(179, 55, theme.PAPER, iso:">")
     }
 
     sub previous_month() {
@@ -243,13 +302,13 @@ calendar_app {
     }
 
     sub draw_weekday_headings() {
-        gfx_lores.text(47, 69, theme.BLUE, iso:"S")
-        gfx_lores.text(68, 69, theme.BLUE, iso:"M")
-        gfx_lores.text(89, 69, theme.BLUE, iso:"T")
-        gfx_lores.text(110, 69, theme.BLUE, iso:"W")
-        gfx_lores.text(131, 69, theme.BLUE, iso:"T")
-        gfx_lores.text(152, 69, theme.BLUE, iso:"F")
-        gfx_lores.text(173, 69, theme.BLUE, iso:"S")
+        gfx_lores.text(47, 72, theme.BLUE, iso:"S")
+        gfx_lores.text(68, 72, theme.BLUE, iso:"M")
+        gfx_lores.text(89, 72, theme.BLUE, iso:"T")
+        gfx_lores.text(110, 72, theme.BLUE, iso:"W")
+        gfx_lores.text(131, 72, theme.BLUE, iso:"T")
+        gfx_lores.text(152, 72, theme.BLUE, iso:"F")
+        gfx_lores.text(173, 72, theme.BLUE, iso:"S")
     }
 
     sub draw_day(ubyte day) {
@@ -257,7 +316,7 @@ calendar_app {
         ubyte column = calendar_slot % 7
         ubyte row = calendar_slot / 7
         uword x = 41 + column * 21
-        ubyte y = 78 + row * 16
+        ubyte y = 81 + row * 16
         ubyte event_slot = event_slot_for(day)
         ubyte event_type = EVENT_NONE
 
@@ -280,12 +339,12 @@ calendar_app {
     }
 
     sub draw_legend() {
-        gfx_lores.fillrect(42, 176, 7, 7, theme.RED)
-        gfx_lores.text(52, 175, theme.INK, iso:"APPT")
-        gfx_lores.fillrect(89, 176, 7, 7, theme.BLUE)
-        gfx_lores.text(99, 175, theme.INK, iso:"TASK")
-        gfx_lores.fillrect(136, 176, 7, 7, theme.GREEN)
-        gfx_lores.text(146, 175, theme.INK, iso:"PERSONAL")
+        gfx_lores.fillrect(42, 187, 7, 7, theme.RED)
+        gfx_lores.text(52, 186, theme.INK, iso:"APPT")
+        gfx_lores.fillrect(89, 187, 7, 7, theme.BLUE)
+        gfx_lores.text(99, 186, theme.INK, iso:"TASK")
+        gfx_lores.fillrect(136, 187, 7, 7, theme.GREEN)
+        gfx_lores.text(146, 186, theme.INK, iso:"PERSONAL")
     }
 
     sub draw_event_panel() {
@@ -335,7 +394,7 @@ calendar_app {
             column = slot % 7
             row = slot / 7
             x = 41 + column * 21
-            y = 78 + row * 16
+            y = 81 + row * 16
 
             if input.inside(x, y, 20, 15)
                 return day
@@ -351,11 +410,11 @@ calendar_app {
 
         ; New events receive a useful starting title. The user can immediately
         ; replace it in the Event Details window.
-        if strings.length(title_for_slot(event_slot)) == 0 {
+        if event_title_length(event_slot) == 0 {
             when event_type {
-                EVENT_APPOINTMENT -> void strings.copy(iso:"NEW APPOINTMENT", title_for_slot(event_slot))
-                EVENT_TASK -> void strings.copy(iso:"NEW TASK", title_for_slot(event_slot))
-                EVENT_PERSONAL -> void strings.copy(iso:"PERSONAL EVENT", title_for_slot(event_slot))
+                EVENT_APPOINTMENT -> copy_event_title(event_slot, iso:"NEW APPOINTMENT")
+                EVENT_TASK -> copy_event_title(event_slot, iso:"NEW TASK")
+                EVENT_PERSONAL -> copy_event_title(event_slot, iso:"PERSONAL EVENT")
             }
         }
     }
@@ -365,7 +424,7 @@ calendar_app {
 
         if event_slot != NO_EVENT_SLOT {
             event_types[event_slot] = EVENT_NONE
-            @(title_for_slot(event_slot)) = 0
+            clear_event_title(event_slot)
         }
     }
 
@@ -396,7 +455,7 @@ calendar_app {
         if event_slot == NO_EVENT_SLOT
             gfx_lores.text(77, 101, theme.SOFT_BLUE, iso:"TYPE EVENT NAME")
         else
-            gfx_lores.text(77, 101, theme.INK, title_for_slot(event_slot))
+            draw_event_title(event_slot)
 
         gfx_lores.text(70, 119, theme.BLUE, iso:"TYPE")
         draw_editor_type_button(70, 130, 54, theme.RED, iso:"APPT",
@@ -432,11 +491,11 @@ calendar_app {
         ubyte length = 0
 
         if event_slot != NO_EVENT_SLOT
-            length = strings.length(title_for_slot(event_slot))
+            length = event_title_length(event_slot)
 
         if key == $14 {
             if length > 0
-                @(title_for_slot(event_slot) + length - 1) = 0
+                set_event_title_character(event_slot, length - 1, 0)
             return
         }
 
@@ -447,8 +506,8 @@ calendar_app {
             if event_slot == NO_EVENT_SLOT
                 return
 
-            @(title_for_slot(event_slot) + length) = key
-            @(title_for_slot(event_slot) + length + 1) = 0
+            set_event_title_character(event_slot, length, key)
+            set_event_title_character(event_slot, length + 1, 0)
 
             ; Typing into an empty day creates a personal event by default.
             ; The colored type buttons can change that with one click.
@@ -509,10 +568,10 @@ calendar_app {
             if input.left_pressed() {
                 clicked_day = day_at_pointer()
 
-                if input.inside(40, 54, 15, 15) {
+                if input.inside(40, 52, 15, 15) {
                     previous_month()
                     draw_window()
-                } else if input.inside(175, 54, 15, 15) {
+                } else if input.inside(175, 52, 15, 15) {
                     next_month()
                     draw_window()
                 ; Clicking any date, including a colored one, displays its
@@ -539,5 +598,8 @@ calendar_app {
                 }
             }
         } until close_window or input.key == $1b
+
+        save_state()
+
     }
 }

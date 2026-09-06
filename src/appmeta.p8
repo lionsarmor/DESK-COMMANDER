@@ -12,7 +12,7 @@ appmeta {
     ; Prog8 strings are always mutable storage, so they are ordinary module
     ; variables rather than const values even though we treat them as read-only.
     str NAME = iso:"DESK COMMANDER"
-    str VERSION = iso:"VERSION 0.2.0 - ALPHA"
+    str VERSION = iso:"VERSION 0.3.0 - ALPHA"
     str CREATOR = iso:"A RODDY PRODUCTION"
     str COPYRIGHT = iso:"COPYRIGHT 2026 RODDY"
 }

@@ -1,12 +1,12 @@
 %import conv
 %import appmeta
+%import diskio
 %import floats
 %import gfx_lores
 %import font5x7
 %import input
 %import calendar_app
-%import comms_app
-%import notes_app
+%import market_data
 %import preferences
 %import rolodex_app
 %import strings
@@ -20,10 +20,89 @@
 ;   1. A slim icon rail keeps application launchers close to the left edge.
 ;   2. Notes and Calendar sit above a wide market-watch glance panel.
 ;
-; Every area already has its own mouse hit box. The applications behind them
-; are still stand-ins, but the dashboard can grow without being rearranged.
+; Every area has its own mouse hit box and keyboard section number. Some apps
+; are complete alpha tools; Comms remains an explicitly labelled prototype.
 
 desktop {
+    ; The file manager is a loadable high-RAM app. Keeping it outside the core
+    ; desktop lets Desk Commander grow without crossing the X16's $9F00 limit.
+    extsub @bank 4 $a000 = initialize_file_manager() clobbers(A, X, Y)
+    extsub @bank 4 $a003 = open_file_manager() clobbers(A, X, Y)
+    extsub @bank 7 $a000 = initialize_network_app() clobbers(A, X, Y)
+    extsub @bank 7 $a003 = open_network_app() clobbers(A, X, Y)
+    extsub @bank 8 $a000 = initialize_market_app() clobbers(A, X, Y)
+    extsub @bank 8 $a003 = open_market_app() clobbers(A, X, Y)
+    extsub @bank 11 $a000 = initialize_notes_app() clobbers(A, X, Y)
+    extsub @bank 11 $a003 = open_notes_app() clobbers(A, X, Y)
+    extsub @bank 12 $a000 = initialize_comms_app() clobbers(A, X, Y)
+    extsub @bank 12 $a003 = open_comms_app() clobbers(A, X, Y)
+
+    sub load_file_suite() -> bool {
+        bool loaded = true
+
+        ; LOADLIB lives in the conventional-memory desktop. Load every bank
+        ; here before entering the high-RAM File Manager, where switching the
+        ; current bank would otherwise hide the running loader itself.
+        cx16.push_rambank(4)
+        cx16.r0 = diskio.loadlib(iso:"ZZFILEMAN.BIN", $a000)
+        cx16.pop_rambank()
+        if cx16.r0 == 0
+            loaded = false
+
+        cx16.push_rambank(5)
+        cx16.r0 = diskio.loadlib(iso:"ZZFILEOPS.BIN", $a000)
+        cx16.pop_rambank()
+        if cx16.r0 == 0
+            loaded = false
+
+        cx16.push_rambank(6)
+        cx16.r0 = diskio.loadlib(iso:"ZZEDITOR.BIN", $a000)
+        cx16.pop_rambank()
+        if cx16.r0 == 0
+            loaded = false
+
+        return loaded
+    }
+
+    sub load_network_setup() -> bool {
+        cx16.push_rambank(7)
+        cx16.r0 = diskio.loadlib(iso:"ZZNETWORK.BIN", $a000)
+        cx16.pop_rambank()
+        return cx16.r0 != 0
+    }
+
+    sub load_market_watch() -> bool {
+        bool loaded = true
+
+        cx16.push_rambank(8)
+        cx16.r0 = diskio.loadlib(iso:"ZZMARKET.BIN", $a000)
+        cx16.pop_rambank()
+        if cx16.r0 == 0
+            loaded = false
+
+        cx16.push_rambank(9)
+        cx16.r0 = diskio.loadlib(iso:"ZZMARKETNET.BIN", $a000)
+        cx16.pop_rambank()
+        if cx16.r0 == 0
+            loaded = false
+
+        return loaded
+    }
+
+    sub load_notes() -> bool {
+        cx16.push_rambank(11)
+        cx16.r0 = diskio.loadlib(iso:"ZZNOTES.BIN", $a000)
+        cx16.pop_rambank()
+        return cx16.r0 != 0
+    }
+
+    sub load_comms() -> bool {
+        cx16.push_rambank(12)
+        cx16.r0 = diskio.loadlib(iso:"ZZCOMMS.BIN", $a000)
+        cx16.pop_rambank()
+        return cx16.r0 != 0
+    }
+
     const uword RAIL_X = 5
     const ubyte RAIL_Y = 30
     const ubyte RAIL_WIDTH = 42
@@ -71,7 +150,11 @@ desktop {
     uword last_mouse_y
     ubyte last_minute
     ubyte clock_frames
+    uword market_frames
     ubyte[6] clock_text = [48, 48, 58, 48, 48, 0]
+    ubyte[6] market_symbol
+    ubyte[12] market_price
+    ubyte[11] market_change
 
     ; Calculator state lives here because the calculator is a modal desktop
     ; accessory. The display string is also the number-entry buffer.
@@ -86,6 +169,7 @@ desktop {
 
         ; The small calendar is a live view of the Calendar app's data.
         calendar_app.initialize()
+        market_data.initialize()
 
         draw_desktop_header()
         draw_icon_rail()
@@ -97,7 +181,7 @@ desktop {
         draw_calendar()
 
         draw_panel(MARKET_X, MARKET_Y, MARKET_WIDTH, MARKET_HEIGHT,
-                   iso:"MARKET WATCH - DEMO", false)
+                   iso:"MARKET WATCH", false)
         draw_market_watch()
 
         draw_status(iso:"YOUR DESK IS READY")
@@ -105,6 +189,7 @@ desktop {
         hovered_section = SECTION_NONE
         last_minute = 255
         clock_frames = 0
+        market_frames = 0
         update_clock()
 
         ; Reconfigure the pointer for this screen and discard any click that
@@ -115,12 +200,51 @@ desktop {
     }
 
     sub draw_desktop_header() {
-        ; The identity block occupies exactly half the screen. A navy field
-        ; carries the clock across the other half without adding fake menus.
+        ; Leave a generous quiet area after the wordmark. The compact navy
+        ; status field holds sound, Wi-Fi, and time at a glance.
         gfx_lores.fillrect(0, 0, 320, 18, theme.NAVY)
-        gfx_lores.fillrect(0, 0, 160, 17, theme.PAPER)
+        gfx_lores.fillrect(0, 0, 204, 17, theme.PAPER)
         gfx_lores.fillrect(0, 17, 320, 1, theme.INK)
         gfx_lores.text(5, 5, theme.INK, iso:"DESK COMMANDER")
+
+        draw_sound_status_icon()
+
+        ; Two-pixel signal arcs and a solid dot read clearly at 320x240.
+        ; Green is connected; offline keeps the white glyph plus a red slash.
+        ubyte wifi_color = theme.PAPER
+        if state_data.read(state_data.NETWORK_CONNECTED) != 0
+            wifi_color = theme.GREEN
+        gfx_lores.line(230, 6, 237, 2, wifi_color)
+        gfx_lores.line(237, 2, 244, 6, wifi_color)
+        gfx_lores.line(230, 7, 237, 3, wifi_color)
+        gfx_lores.line(237, 3, 244, 7, wifi_color)
+        gfx_lores.line(233, 11, 237, 8, wifi_color)
+        gfx_lores.line(237, 8, 241, 11, wifi_color)
+        gfx_lores.line(233, 12, 237, 9, wifi_color)
+        gfx_lores.line(237, 9, 241, 12, wifi_color)
+        ; A square three-pixel receiver dot stays crisp. The circle primitive
+        ; makes a radius-one dot look like a distracting plus at this scale.
+        gfx_lores.fillrect(236, 14, 3, 3, wifi_color)
+        if state_data.read(state_data.NETWORK_CONNECTED) == 0
+            gfx_lores.line(230, 3, 244, 16, theme.RED)
+    }
+
+    sub draw_sound_status_icon() {
+        ; Repaint only the speaker region when Sound changes in Settings. This
+        ; updates the permanent bar immediately without disturbing the clock.
+        gfx_lores.fillrect(205, 2, 19, 15, theme.NAVY)
+
+        ; Filled speaker silhouette: waves mean on; a red slash means muted.
+        gfx_lores.fillrect(209, 8, 4, 4, theme.PAPER)
+        gfx_lores.fillrect(213, 7, 2, 6, theme.PAPER)
+        gfx_lores.fillrect(215, 5, 2, 10, theme.PAPER)
+        if preferences.sound_enabled {
+            gfx_lores.line(219, 6, 221, 8, theme.PAPER)
+            gfx_lores.line(221, 8, 221, 11, theme.PAPER)
+            gfx_lores.line(221, 11, 219, 13, theme.PAPER)
+        }
+        if not preferences.sound_enabled
+            gfx_lores.line(208, 3, 221, 15, theme.RED)
     }
 
     sub update_clock() {
@@ -260,15 +384,39 @@ desktop {
     }
 
     sub draw_market_watch() {
-        ; These are intentionally labeled demo quotes. A future market-data
-        ; service can replace the values without changing this dashboard card.
+        ubyte row
+        ubyte stock
+        ubyte first_stock = market_data.current_page() * 3
+        ubyte color
+
+        ; This small dirty region is also repainted when the next group of
+        ; three cached quotes rotates into view every thirty seconds.
+        gfx_lores.fillrect(53, 153, 253, 55, theme.PAPER)
         gfx_lores.text(60, 156, theme.BLUE, iso:"SYMBOL")
         gfx_lores.text(128, 156, theme.BLUE, iso:"LAST")
         gfx_lores.text(205, 156, theme.BLUE, iso:"CHANGE")
 
-        draw_market_row(168, iso:"AAPL", iso:"229.00", iso:"+1.20%", theme.GREEN)
-        draw_market_row(181, iso:"IBM", iso:"252.10", iso:"-0.40%", theme.RED)
-        draw_market_row(194, iso:"KO", iso:"68.50", iso:"+0.15%", theme.GREEN)
+        if market_data.count() == 0 {
+            gfx_lores.text(66, 180, theme.INK, iso:"CLICK HERE TO ADD STOCKS")
+            return
+        }
+
+        for row in 0 to 2 {
+            stock = first_stock + row
+            if stock < market_data.count() {
+                market_data.copy_symbol(stock, market_symbol)
+                market_data.copy_price(stock, market_price)
+                market_data.copy_change(stock, market_change)
+                color = theme.SOFT_BLUE
+                if market_data.state(stock) == market_data.STATE_FRESH {
+                    color = theme.GREEN
+                    if market_change[0] == '-'
+                        color = theme.RED
+                }
+                draw_market_row(168 + row * 13, market_symbol, market_price,
+                                market_change, color)
+            }
+        }
     }
 
     sub draw_market_row(ubyte y, str symbol, str price, str change,
@@ -325,16 +473,29 @@ desktop {
     }
 
     sub draw_calculator_icon(ubyte y, ubyte color, ubyte cutout_color) {
-        ; A framed calculator with a bright display and six distinct keys.
-        gfx_lores.fillrect(ICON_X + 6, y + 3, 23, 25, color)
-        gfx_lores.fillrect(ICON_X + 9, y + 6, 17, 19, cutout_color)
-        gfx_lores.fillrect(ICON_X + 11, y + 8, 13, 5, color)
-        gfx_lores.fillrect(ICON_X + 11, y + 16, 3, 3, color)
-        gfx_lores.fillrect(ICON_X + 17, y + 16, 3, 3, color)
-        gfx_lores.fillrect(ICON_X + 23, y + 16, 3, 3, color)
-        gfx_lores.fillrect(ICON_X + 11, y + 22, 3, 3, color)
-        gfx_lores.fillrect(ICON_X + 17, y + 22, 3, 3, color)
-        gfx_lores.fillrect(ICON_X + 23, y + 22, 3, 3, color)
+        ; A compact handheld calculator: clipped corners, inset LCD, three
+        ; number rows, and a separate operator column. The stronger silhouette
+        ; remains recognizable when the rail button is highlighted red.
+        gfx_lores.fillrect(ICON_X + 8, y + 2, 20, 27, color)
+        gfx_lores.fillrect(ICON_X + 6, y + 4, 24, 23, color)
+        gfx_lores.fillrect(ICON_X + 9, y + 5, 18, 20, cutout_color)
+
+        ; Recessed display with a tiny right-aligned readout mark.
+        gfx_lores.fillrect(ICON_X + 10, y + 6, 16, 6, color)
+        gfx_lores.fillrect(ICON_X + 12, y + 8, 11, 2, cutout_color)
+        gfx_lores.fillrect(ICON_X + 23, y + 8, 2, 2, cutout_color)
+        gfx_lores.horizontal_line(ICON_X + 10, y + 13, 16, color)
+
+        ; Raised square keys plus a tall operation key and wide equals key.
+        gfx_lores.fillrect(ICON_X + 10, y + 15, 3, 3, color)
+        gfx_lores.fillrect(ICON_X + 15, y + 15, 3, 3, color)
+        gfx_lores.fillrect(ICON_X + 20, y + 15, 3, 3, color)
+        gfx_lores.fillrect(ICON_X + 25, y + 15, 2, 7, color)
+        gfx_lores.fillrect(ICON_X + 10, y + 20, 3, 3, color)
+        gfx_lores.fillrect(ICON_X + 15, y + 20, 3, 3, color)
+        gfx_lores.fillrect(ICON_X + 20, y + 20, 3, 3, color)
+        gfx_lores.fillrect(ICON_X + 10, y + 25, 8, 2, color)
+        gfx_lores.fillrect(ICON_X + 20, y + 25, 7, 2, color)
     }
 
     sub draw_comms_icon(ubyte y, ubyte color, ubyte cutout_color) {
@@ -398,7 +559,7 @@ desktop {
         draw_calculator_display()
         draw_overlay_key(222, 65, iso:"C")
 
-        ; Four familiar rows establish the future calculator interaction.
+        ; Four familiar rows keep the working calculator compact and readable.
         draw_overlay_key(84, 95, iso:"7")
         draw_overlay_key(128, 95, iso:"8")
         draw_overlay_key(172, 95, iso:"9")
@@ -640,94 +801,6 @@ desktop {
         show()
     }
 
-    sub draw_file_manager_overlay() {
-        ; A roomy two-pane file browser: favorite places stay on the left and
-        ; the contents of the current location stay on the right.
-        gfx_lores.fillrect(35, 39, 255, 168, theme.INK)
-        gfx_lores.fillrect(32, 36, 255, 168, theme.PAPER)
-        gfx_lores.rect(32, 36, 255, 168, theme.INK)
-
-        gfx_lores.fillrect(33, 37, 253, 16, theme.BLUE)
-        gfx_lores.text(40, 41, theme.PAPER, iso:"FILE MANAGER")
-        gfx_lores.fillrect(266, 39, 15, 12, theme.RED)
-        gfx_lores.text(270, 41, theme.PAPER, iso:"X")
-
-        ; Location bar. The future browser will make each path segment usable.
-        gfx_lores.fillrect(40, 59, 237, 14, theme.INK)
-        gfx_lores.fillrect(42, 61, 233, 10, theme.PAPER)
-        gfx_lores.text(47, 62, theme.INK, iso:"SD:/DESK")
-
-        ; Places pane
-        gfx_lores.fillrect(40, 78, 61, 99, theme.NAVY)
-        gfx_lores.text(48, 82, theme.SOFT_BLUE, iso:"PLACES")
-        gfx_lores.fillrect(43, 94, 55, 15, theme.BLUE)
-        gfx_lores.text(47, 98, theme.PAPER, iso:"DESK")
-        gfx_lores.text(47, 116, theme.PAPER, iso:"DOCS")
-        gfx_lores.text(47, 134, theme.PAPER, iso:"NOTES")
-        gfx_lores.text(47, 152, theme.PAPER, iso:"BACKUP")
-
-        ; File list and column heading
-        gfx_lores.rect(105, 78, 172, 99, theme.INK)
-        gfx_lores.fillrect(106, 79, 170, 13, theme.BLUE)
-        gfx_lores.text(111, 82, theme.PAPER, iso:"NAME           TYPE")
-
-        draw_file_row(93, iso:"DOCUMENTS    DIR", true, true)
-        draw_file_row(110, iso:"NOTES.TXT    TXT", false, false)
-        draw_file_row(127, iso:"CONTACTS.DC  CARD", false, false)
-        draw_file_row(144, iso:"AGENDA.DC    CAL", false, false)
-        draw_file_row(161, iso:"README.TXT   TXT", false, false)
-
-        ; Large, explicit actions are easier to understand than tiny toolbar
-        ; glyphs and remain comfortable mouse targets at 320x240.
-        draw_file_action(105, 182, 50, iso:"OPEN")
-        draw_file_action(160, 182, 50, iso:"NEW")
-        draw_file_action(215, 182, 62, iso:"CLOSE")
-    }
-
-    sub draw_file_row(ubyte y, str label, bool selected, bool folder) {
-        ubyte row_color = theme.INK
-        if selected {
-            gfx_lores.fillrect(106, y, 170, 16, theme.SOFT_BLUE)
-            row_color = theme.NAVY
-        }
-
-        ; A small type mark makes folders recognizable before reading the row.
-        if folder {
-            gfx_lores.fillrect(110, y + 4, 9, 3, theme.BLUE)
-            gfx_lores.fillrect(108, y + 7, 14, 7, theme.BLUE)
-        }
-        gfx_lores.text(126, y + 4, row_color, label)
-    }
-
-    sub draw_file_action(uword x, ubyte y, ubyte width, str label) {
-        gfx_lores.fillrect(x + 1, y + 1, width, 15, theme.INK)
-        gfx_lores.fillrect(x, y, width, 15, theme.PAPER)
-        gfx_lores.rect(x, y, width, 15, theme.BLUE)
-        gfx_lores.text(x + 7, y + 4, theme.INK, label)
-    }
-
-    sub show_file_manager_overlay() {
-        bool close_overlay = false
-
-        draw_file_manager_overlay()
-
-        do {
-            sys.waitvsync()
-            input.poll()
-
-            ; Both the title-bar X and the visible Close button dismiss this
-            ; scaffold. File activation arrives with disk I/O implementation.
-            if input.left_pressed() {
-                if input.inside(266, 39, 15, 12)
-                    close_overlay = true
-                if input.inside(215, 182, 62, 15)
-                    close_overlay = true
-            }
-        } until close_overlay or input.key == $1b
-
-        show()
-    }
-
     sub draw_settings_overlay() {
         ; Settings uses visual categories rather than a dense preference list.
         gfx_lores.fillrect(45, 41, 235, 164, theme.INK)
@@ -842,34 +915,17 @@ desktop {
         gfx_lores.disc(x + 32, y + 31, 3, theme.RED)
     }
 
-    sub draw_network_settings() {
-        ; Reuse the Settings window instead of stacking another full window.
-        ; These values describe the TexElec X16 Serial & ESP32 Network Card:
-        ; ZiModem on the first UART at the card's factory-default IO7-low
-        ; address, running at 115200 baud with hardware flow control.
-        gfx_lores.fillrect(43, 39, 233, 162, theme.PAPER)
-        gfx_lores.fillrect(43, 39, 233, 16, theme.BLUE)
-        gfx_lores.text(50, 43, theme.PAPER, iso:"X16 SERIAL NETWORK")
-        gfx_lores.fillrect(256, 41, 15, 12, theme.RED)
-        gfx_lores.text(260, 43, theme.PAPER, iso:"X")
-
-        gfx_lores.text(53, 67, theme.BLUE, iso:"CARD    TEXELEC X16")
-        gfx_lores.text(53, 84, theme.RED, iso:"STATUS  OFFLINE")
-        gfx_lores.text(53, 101, theme.INK, iso:"PORT    $9FE0 IO7 LOW")
-        gfx_lores.text(53, 118, theme.INK, iso:"LINK    115200 RTS/CTS")
-        gfx_lores.text(53, 135, theme.INK, iso:"WIFI    NOT CONFIGURED")
-        gfx_lores.text(53, 158, theme.BLUE, iso:"[DETECT] [WIFI] [SAVE]")
-        gfx_lores.text(53, 181, theme.BLUE, iso:"ZIMODEM : CHAT + STOCKS")
-    }
-
-    sub show_network_settings() {
-        draw_network_settings()
-        wait_for_large_dialog()
-    }
-
     sub draw_about_option_icon(uword x, ubyte y) {
         gfx_lores.disc(x + 32, y + 19, 14, theme.BLUE)
         gfx_lores.text(x + 29, y + 15, theme.PAPER, iso:"i")
+    }
+
+    sub show_network_setup() {
+        if load_network_setup() {
+            initialize_network_app()
+            open_network_app()
+        } else
+            draw_status(iso:"NETWORK APP IS MISSING")
     }
 
     sub draw_about_dialog() {
@@ -954,11 +1010,13 @@ desktop {
             if input.left_pressed() {
                 if input.inside(92, 117, 61, 23) {
                     preferences.use_24_hour_clock = false
+                    preferences.save()
                     last_minute = 255
                     update_clock()
                     close_dialog = true
                 } else if input.inside(167, 117, 61, 23) {
                     preferences.use_24_hour_clock = true
+                    preferences.save()
                     last_minute = 255
                     update_clock()
                     close_dialog = true
@@ -989,18 +1047,28 @@ desktop {
                     draw_settings_option(127, 63, iso:"MOUSE", 2)
                 } else if input.inside(203, 63, 65, 50) {
                     preferences.toggle_sound()
+                    ; Keep the always-visible status bar synchronized with
+                    ; the Sound tile while Settings remains open.
+                    draw_sound_status_icon()
                     draw_settings_option(203, 63, iso:"SOUND", 3)
                 } else if input.inside(51, 122, 65, 50) {
                     show_clock_format_dialog()
                     draw_settings_overlay()
                 } else if input.inside(127, 122, 65, 50) {
-                    show_network_settings()
+                    show_network_setup()
                     draw_settings_overlay()
                 } else if input.inside(203, 122, 65, 50) {
                     show_about_dialog()
                     draw_settings_overlay()
                 } else if input.inside(256, 41, 15, 12)
                     close_overlay = true
+            }
+
+            ; Direct category shortcuts also make Settings usable when a
+            ; pointer is unavailable. N opens the Network setup application.
+            if input.key == 'N' or input.key == 'n' {
+                show_network_setup()
+                draw_settings_overlay()
             }
         } until close_overlay or input.key == $1b
 
@@ -1047,7 +1115,7 @@ desktop {
             SECTION_CALCULATOR -> draw_rail_button(CALCULATOR_Y, ICON_CALCULATOR, false)
             SECTION_COMMS -> draw_rail_button(COMMS_Y, ICON_COMMS, false)
             SECTION_SETTINGS -> draw_rail_button(SETTINGS_Y, ICON_SETTINGS, false)
-            SECTION_MARKET -> draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH - DEMO", false)
+            SECTION_MARKET -> draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH", false)
         }
 
         when new_section {
@@ -1058,15 +1126,10 @@ desktop {
             SECTION_CALCULATOR -> draw_rail_button(CALCULATOR_Y, ICON_CALCULATOR, true)
             SECTION_COMMS -> draw_rail_button(COMMS_Y, ICON_COMMS, true)
             SECTION_SETTINGS -> draw_rail_button(SETTINGS_Y, ICON_SETTINGS, true)
-            SECTION_MARKET -> draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH - DEMO", true)
+            SECTION_MARKET -> draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH", true)
         }
 
         hovered_section = new_section
-    }
-
-    sub show_placeholder_message() {
-        ; Every other section has its own app; only Market remains a preview.
-        draw_status(iso:"MARKET WATCH - NETWORK DATA COMES LATER")
     }
 
     sub select_next_section() {
@@ -1085,25 +1148,45 @@ desktop {
 
     sub open_selected_section() {
         if hovered_section == SECTION_NOTES {
-            notes_app.open()
-            show()
+            if load_notes() {
+                initialize_notes_app()
+                open_notes_app()
+                show()
+            } else
+                draw_status(iso:"NOTES APP IS MISSING")
         } else if hovered_section == SECTION_CALENDAR {
             calendar_app.open()
             show()
         } else if hovered_section == SECTION_ROLODEX {
             rolodex_app.open()
             show()
-        } else if hovered_section == SECTION_FILES
-            show_file_manager_overlay()
+        } else if hovered_section == SECTION_FILES {
+            if load_file_suite() {
+                initialize_file_manager()
+                open_file_manager()
+                show()
+            } else
+                draw_status(iso:"FILE MANAGER APP IS MISSING")
+        }
         else if hovered_section == SECTION_CALCULATOR
             show_calculator_overlay()
         else if hovered_section == SECTION_COMMS {
-            comms_app.open()
-            show()
+            if load_comms() {
+                initialize_comms_app()
+                open_comms_app()
+                show()
+            } else
+                draw_status(iso:"COMMS APP IS MISSING")
         } else if hovered_section == SECTION_SETTINGS
             show_settings_overlay()
-        else
-            show_placeholder_message()
+        else if hovered_section == SECTION_MARKET {
+            if load_market_watch() {
+                initialize_market_app()
+                open_market_app()
+                show()
+            } else
+                draw_status(iso:"MARKET WATCH APP IS MISSING")
+        }
     }
 
     sub run() {
@@ -1139,6 +1222,13 @@ desktop {
             if clock_frames == 60 {
                 clock_frames = 0
                 update_clock()
+            }
+
+            market_frames++
+            if market_frames == 1800 {
+                market_frames = 0
+                market_data.next_page()
+                draw_market_watch()
             }
         } until input.key == $1b
 

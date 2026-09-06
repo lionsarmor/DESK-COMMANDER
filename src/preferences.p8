@@ -1,15 +1,23 @@
 %import syslib
+%import state_data
 
 ; -----------------------------------------------------------------------------
 ; Small preferences shared by every DESK COMMANDER application
 ; -----------------------------------------------------------------------------
 ;
-; These values are in memory during alpha. The settings-file milestone will
-; save them to disk. Voice 15 is reserved for the quiet interface click.
+; Values stay in ordinary RAM while the program runs and are mirrored into the
+; shared device-8 state image whenever they change. Voice 15 is reserved for
+; the quiet interface click.
 
 preferences {
     bool sound_enabled = true
     bool use_24_hour_clock = true
+
+    sub save() {
+        state_data.write(state_data.PREF_SOUND, sound_enabled as ubyte)
+        state_data.write(state_data.PREF_CLOCK, use_24_hour_clock as ubyte)
+        state_data.save()
+    }
 
     sub silence_click_voice() {
         cx16.vpoke(1, $f9fe, 0)
@@ -35,5 +43,6 @@ preferences {
             silence_click_voice()
         else
             play_click()
+        save()
     }
 }
