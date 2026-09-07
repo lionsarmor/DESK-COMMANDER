@@ -1,0 +1,23 @@
+[Unit]
+Description=Desk Commander modular backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deskcmd
+Group=deskcmd
+UMask=0077
+WorkingDirectory=/opt/deskcommander/backend
+EnvironmentFile=/etc/deskcommander/backend.env
+ExecStart=/opt/deskcommander/venv/bin/uvicorn app.main:app --host ${DC_BIND} --port ${DC_HTTP_PORT}
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/deskcommander
+
+[Install]
+WantedBy=multi-user.target

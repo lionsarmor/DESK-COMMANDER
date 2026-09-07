@@ -194,6 +194,8 @@ src/chat_network.p8  ZiModem HTTP client in bank 15
 src/comms_visual.p8  Comms rendering service in bank 16
 server/chat_server.py Local persistent Python chat/API server
 server/web/index.html Browser chat and account-management dashboard
+backend/             Modular public RetroWire service (X16 first)
+docs/RETROWIRE.md    Draft shared X16/Spectrum Next/C64U protocol
 src/calendar_app.p8  Month view and event editor
 src/rolodex_app.p8   Searchable contact-card application
 src/comms_app.p8     Direct-message and server-chat prototype
@@ -292,6 +294,19 @@ Server records are saved atomically to the ignored local file
 `server/chat-data.json`. This is an intentionally simple LAN alpha: usernames
 are identities, there are no passwords, encryption, moderation, or public
 internet exposure protections yet. Do not port-forward port 8088.
+
+## 🌐 Public backend foundation
+
+The new modular service in `backend/` is the successor to the LAN test server.
+Its first deployment runs on the `retrowire` Ubuntu Droplet as an unprivileged
+`deskcmd` systemd service. It currently binds only to `127.0.0.1:8080`; UFW
+exposes SSH only. This is intentional—no unfinished account or message endpoint
+is public before RetroWire device authentication and encryption are complete.
+
+The initial SQLite schema reserves clean modules for identity/devices, friends,
+groups, chat, internal Desk Mail, games, and auditing. See
+`docs/RETROWIRE.md` for the bounded encrypted transport plan and
+`backend/deploy/README.md` for the server layout and health commands.
 
 Market Watch writes every successful quote to `DCSTATE.BIN`. Gold, silver, and
 Bitcoin compare a new quote with the last saved numeric quote—even across a

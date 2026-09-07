@@ -276,6 +276,16 @@ Target hardware: [TexElec Commander X16 921.6Kbps Serial & ESP32 Network Card](h
 
 - [x] Fix ZiModem LAN downloads to use native `AT&G"HOST:PORT/path"` syntax.
 - [x] Keep local server data atomic and persistent in `server/chat-data.json`.
+- [x] Provision the public Ubuntu Droplet and a non-root `deskcmd` service user.
+- [x] Deploy the modular FastAPI/SQLite backend foundation under systemd.
+- [x] Enable key-only SSH and a deny-by-default firewall; keep unfinished app
+      ports private during development.
+- [x] Draft the bounded RetroWire v1 handshake, limits, and command families.
+- [ ] Implement and test device provisioning, challenge-response authentication,
+      ChaCha20-Poly1305 sessions, replay protection, and revocation.
+- [ ] Open the RetroWire TCP port only after the security acceptance tests pass.
+- [ ] Add a domain and Caddy-managed HTTPS for the maintenance console.
+- [ ] Migrate validated LAN-server chat records into the public database.
 - [ ] Accept a saved hostname/HTTPS origin in addition to a 15-character IPv4
       LAN address; do not append port 8088 when an HTTPS origin supplies 443.
 - [ ] Add authenticated sessions so a remote caller cannot impersonate any

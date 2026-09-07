@@ -14,3 +14,6 @@ DCSTATE.BIN
 server/chat-data.json
 server/chat-data.tmp
 server/__pycache__/
+backend/.venv/
+backend/data/
+backend/**/__pycache__/
