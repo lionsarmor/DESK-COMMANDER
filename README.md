@@ -31,7 +31,8 @@ inside a crisp mouse-and-keyboard desktop.
   dirty-file warnings, and a clean return to the File Manager
 - 🎨 X16, Amber, and Night theme packages
 - 🔊 Subtle optional interface sounds
-- 💬 Full-screen Comms prototype with direct chats, servers, and presence colors
+- 💬 Full-screen Comms with saved user/host settings, persistent offline
+  friends, group chats, online/away/offline colors, and two-way LAN messages
 - 📈 Saved twelve-symbol Market Watch, defaulting to GOOG, MSFT, and TSLA
 - 📡 Physical TexElec UART detection at `$9FE0`; ZiModem communication is the
   current top-priority hardware issue
@@ -48,19 +49,24 @@ The Network screen is designed for the
 It reflects the card's preinstalled
 [ZiModem](https://github.com/bozimmerman/Zimodem) interface, default IO7-low
 network UART at `$9FE0`, 115200 baud, and RTS/CTS flow control. On physical
-hardware, DESK COMMANDER successfully detects the card's UART at `$9FE0`, but
-the current `ATI4` probe does not yet receive/recognize ZiModem's response.
-Wi-Fi scanning, joining, status, Market Watch updates, and Comms networking
-therefore remain blocked until that transport issue is fixed and retested.
+hardware, DESK COMMANDER successfully detects the card's UART at `$9FE0` and
+has now received both `OK` and the full ZiModem ESP32 Firmware v4.0.2 startup
+banner. The current build treats the successful ZiModem-specific setup reply
+as readiness; its optional firmware query can no longer incorrectly disable
+Scan and Join merely because the banner ends in `READY` instead of `OK`. A
+cold-start banner also triggers an automatic settled retry, replacing the
+previous need to press Detect twice.
+Wi-Fi scanning, joining, status, and Market Watch still require confirmation
+with this build on the physical card.
 
 ## 🚧 Road to 100%
 
 The complete task breakdown lives in the [V1 roadmap](ROADMAP.md). Work should
 proceed in this order:
 
-- [ ] **P0 — Fix physical ZiModem communication.** Compare against ROMTERM,
-  normalize baud/flow-control/command mode, accept verbose and numeric replies,
-  expose raw diagnostics, then verify detect, scan, join, IP, DNS, and HTTPS.
+- [x] **P0 — Establish physical ZiModem communication.** Detect, scan, join,
+  IP status, reconnect/disconnect, and the outbound connection test now work on
+  the real TexElec card. Per-service HTTPS parsing remains part of P2.
 - [ ] **P1 — Make persistence power-loss safe.** Use temporary and backup state
   files, handle full/removed/write-protected media, and prove recovery on SD.
 - [ ] **P1 — Finish the organizer.** Add long Notes, editable Contacts,
@@ -137,13 +143,13 @@ October 2024 should read TexElec's replacement notice on the
 | App | What works now | Still to come |
 |---|---|---|
 | Notes | Six saved slots; select, type, add, delete, wheel/arrow scroll | Long-form bodies, files, clipboard, undo |
-| Calendar | Browse months; add/edit/delete saved typed events | Multiple daily events, agenda, recurrence, reminders |
+| Calendar | Browse months; add/edit/delete saved typed events; flicker-free title-field editing | Multiple daily events, agenda, recurrence, reminders |
 | Rolodex | Search, flicker-reduced scroll, inspect, and persist deletions | Create/edit contacts, sorting, import/export |
 | Calculator | Basic arithmetic, decimals, keyboard input | Memory keys and final edge-case testing |
-| Files | Browse device 8; create files with any extension and folders; open text; rename, move, and confirmed delete | Copy, sorting/filtering, richer errors |
+| Files | Browse device 8; create files/folders; edit text; launch PRG/AUTOBOOT entries; rename, move, and confirmed delete | Copy, sorting/filtering, richer errors |
 | Text Editor ++ | Open files, multiline edit, mouse cursor placement, Save, Save As, unsaved-work warning | Find, clipboard, undo, larger documents, safer replacement writes |
 | Settings | Saved theme, mouse, sound, clock; Network diagnostics; About | Fix physical ZiModem response and add richer storage tools |
-| Comms | Direct/server layout and selection | Accounts, transport, messages, history, real presence |
+| Comms | Separately saved username/host, persistent friends, unified groups, presence colors, scrolling, two-way LAN messages, and browser diagnostics | Authentication, moderation, invites, background presence, internet hosting |
 | Market Watch | Add/delete 12 saved symbols, quote/cache UI, and rotate groups every 30 seconds | Restore physical ZiModem transport, then validate Finnhub and add richer stale/rate-limit states |
 
 ## 🧰 Project layout
@@ -164,9 +170,14 @@ src/file_ops.p8      New File/Folder, Rename, Move, and Delete dialogs
 src/file_ops_overlay.p8      Loadable file-operation entry point
 src/text_editor.p8   Text Editor ++ load, edit, save, and close behavior
 src/text_editor_overlay.p8   Loadable editor entry point
+src/program_launcher.p8      Safe one-way handoff to another X16 PRG
+src/program_launcher_overlay.p8 Loadable launcher entry point in bank 14
 src/network_driver.p8        TexElec UART and ZiModem command transport
-src/network_app.p8           Detect, scan, join, and status interface
+src/network_app.p8           Detect, scan, join, status, and disconnect logic
 src/network_overlay.p8       Loadable Network Setup entry point
+src/network_picker_overlay.p8 Network visual-helper entry point
+src/network_picker.p8        SSID dirty-region and colored icon toolbar UI
+src/network_mailbox.p8       Shared scanned-SSID mailbox in golden RAM
 src/market_data.p8           Shared VERA watchlist and quote cache
 src/market_app.p8            Scrollable watchlist and API-key interface
 src/market_overlay.p8        Loadable Market Watch interface
@@ -178,6 +189,11 @@ src/state_overlay.p8 Loadable persistence service in bank 10
 src/notes_app.p8     Saved, scrollable Notes application
 src/notes_overlay.p8 Loadable Notes entry point in bank 11
 src/comms_overlay.p8 Loadable Comms entry point in bank 12
+src/comms_data.p8    Shared saved identity and VERA chat cache
+src/chat_network.p8  ZiModem HTTP client in bank 15
+src/comms_visual.p8  Comms rendering service in bank 16
+server/chat_server.py Local persistent Python chat/API server
+server/web/index.html Browser chat and account-management dashboard
 src/calendar_app.p8  Month view and event editor
 src/rolodex_app.p8   Searchable contact-card application
 src/comms_app.p8     Direct-message and server-chat prototype
@@ -185,9 +201,11 @@ docs/images/         GitHub screenshots
 ```
 
 Generated files live in `build/`. `ZZFILEMAN.BIN`, `ZZFILEOPS.BIN`,
-`ZZEDITOR.BIN`, `ZZNETWORK.BIN`, `ZZMARKET.BIN`, `ZZMARKETNET.BIN`,
-`ZZSTATE.BIN`, `ZZNOTES.BIN`, and `ZZCOMMS.BIN` are also emitted beside the
-launcher so HostFS and an SD-card copy can load them. Keep all nine beside
+`ZZEDITOR.BIN`, `ZZLAUNCH.BIN`, `ZZNETWORK.BIN`, `ZZNETPK.BIN`, `ZZMARKET.BIN`,
+`ZZMARKETNET.BIN`, `ZZSTATE.BIN`, `ZZNOTES.BIN`, `ZZCOMMS.BIN`,
+`ZZCHATNET.BIN`, and `ZZCHATUI.BIN` are also
+emitted beside the launcher so HostFS and an SD-card copy can load them. Keep
+all thirteen beside
 `main.prg`.
 Downloaded tools live in `.tools/`. Generated artifacts are excluded from
 source control.
@@ -195,34 +213,106 @@ source control.
 Ordinary core variables live in the X16's non-banked golden RAM. The File
 Manager browser uses bank 4, its operation dialogs use bank 5, and Text Editor
 ++ uses bank 6 plus a separate 2 KB document buffer in VERA RAM. Network Setup
-uses bank 7, Market Watch uses bank 8, and its network worker uses bank 9. The
+uses bank 7, while bank 13 draws its scrollable SSID dirty region and compact
+icon controls. Market Watch uses bank 8,
+and its network worker uses bank 9. The
 persistent-state service uses bank 10, Notes uses bank 11, and Comms uses bank
-12. The shared 2 KB state image—including Calendar titles and the Market
-cache—lives in VERA bank 1.
+12. Bank 14 performs the one-way handoff to an external PRG. Comms uses bank
+15 for its HTTP protocol and bank 16 for rendering. The shared 2 KB
+state image—including Calendar titles and the Market cache—lives in VERA bank 1.
 This keeps the core PRG safely below `$9F00` and establishes the overlay pattern
 that future large apps can follow.
 
 ### File shortcuts
 
 - File Manager: use the wheel, scrollbar, or arrows to browse; double-click or
-  press `Enter`/`O` to open; `N` makes a file, `F` makes a folder, `R` renames,
-  `M` moves, `D` deletes, `U` goes up, and `Esc` closes.
+  press `Enter`/`O` to open. Text files use Text Editor++; CMDR-DOS `PRG`
+  entries (including `AUTOBOOT.X16`) close Desk Commander and run through the
+  standard BASIC launcher/SYS-stub convention. `N` makes a file, `F` makes a
+  folder, `R` renames, `M` moves, `D` deletes, `U` goes up, and `Esc` closes.
+  Closing Files restores Desk Commander's starting directory so its app banks
+  remain loadable after browsing subfolders.
 - Text Editor ++: type normally, use arrows and Backspace, `F2` saves, `F4`
   opens Save As, and `Esc` closes. Unsaved documents ask whether to save or
   discard changes.
-- Network Setup: `D` detects the card/ZiModem, `W` scans, `J` joins a network,
-  `I` refreshes IP status, and `Esc` closes. Every action also has a button.
-- Market Watch: Add up to 12 symbols, choose **API KEY** to enter your own
-  [Finnhub](https://finnhub.io/) key, select any row, and choose **UPDATE 3**.
-  Arrows or the wheel scroll the list. Cached groups of three rotate on the
-  desktop every 30 seconds; rotation does not spend additional API calls.
+- Network Setup: `D` detects the card/ZiModem, `W` scans, `J` opens the numbered
+  SSID picker, `I` refreshes IP status, and `Esc` closes. In the picker, use
+  `1`-`5`, mouse clicks, arrows/mouse wheel plus Enter, or Esc. Password entry
+  preserves lowercase and shifted uppercase characters. Every main action also
+  has a button.
+
+## 💬 Running the local chat server
+
+The alpha chat server has no external Python dependencies. Run it on a computer
+connected to the same LAN/Wi-Fi as the X16:
+
+```bash
+cd "/home/legion/Desktop/DESK COMMANDER"
+./tools/run-chat-server.sh
+```
+
+Open `http://localhost:8088` in a browser. The **X16 Connection** panel detects
+the physical LAN address and provides a **Copy IP** button. In X16 Comms,
+**USER** changes and saves your username while the separate **HOST** button
+changes and saves that numeric address (without `http://` or `:8088`). Both
+values are written immediately to the SD card's `DCSTATE.BIN`.
+
+Use **+FR** to save a friend. The friend does not need to be connected—or even
+have opened the app yet—and appears with a red offline dot until reachable.
+Green means online and yellow means away. Select a friend, click the message
+field, type up to 32 characters, and press **SEND**. Offline messages remain on
+the server for the next time that friend connects.
+
+Use **+GRP** to create a shared group chat. Select that group and use **MEM** to
+add one of your saved friends. Groups replace the older duplicate “server”
+room concept. Existing alpha server rooms migrate into Groups automatically.
+
+Friends, group names/membership, and message history are persistent records in
+`server/chat-data.json`; they survive X16 and server restarts and return on
+**SYNC**. The browser console can remove friends or leave groups. It also shows
+the last X16 request, a live API-call monitor, presence, two-way chat, and an
+exact preview/byte count of the compact X16 SYNC response.
+
+The computer and X16 must currently be on the **same non-isolated network**.
+A hotel guest network address is private and normally cannot be reached from
+an X16 using an iPhone hotspot. For the hardware alpha, connect the computer
+to that same hotspot, allow LAN traffic in any VPN client (or disconnect the
+VPN during the test), restart `DESKSVR`, and enter the newly displayed IP.
+
+Do not expose this alpha server directly through router port forwarding or a
+public IP. A real internet deployment first needs authenticated sessions,
+authorization checks, TLS, abuse/rate limits, safe recovery/backups, and a
+stable public host. A small public VPS is the simplest eventual fixed-IP test
+host. A named Cloudflare Tunnel is another option, but it supplies a hostname
+rather than a dedicated external IP and requires hostname/HTTPS support in the
+X16 client. Temporary TryCloudflare tunnels are appropriate only for testing;
+their generated hostname changes whenever the tunnel is restarted.
+
+Server records are saved atomically to the ignored local file
+`server/chat-data.json`. This is an intentionally simple LAN alpha: usernames
+are identities, there are no passwords, encryption, moderation, or public
+internet exposure protections yet. Do not port-forward port 8088.
+
+Market Watch writes every successful quote to `DCSTATE.BIN`. Gold, silver, and
+Bitcoin compare a new quote with the last saved numeric quote—even across a
+power cycle. A failed refresh now preserves that baseline instead of replacing
+it with `OFFLINE`; only the very first successful quote displays `0.00%`.
+- Market Watch: Add or remove up to 12 symbols. `XAU` (gold), `XAG` (silver),
+  and `BTC` use the built-in keyless current-price feed. Their numeric movement
+  is measured from the previous refresh. Other stock symbols
+  use your own free [Finnhub](https://finnhub.io/) key entered with **KEY**.
+  Select a row and choose **REFRESH** to update its group of three. Arrows or
+  the wheel scroll the list. Cached groups rotate on the desktop every 30
+  seconds, and the tiny circular-arrow button refreshes the visible group.
 - Notes: click a visible row and type. Use the wheel or Up/Down cursor keys to
   move through all six slots. Changes are committed when Notes closes.
 
-Market Watch sends Finnhub's compact quote request over HTTPS using ZiModem's
-`AT&G` downloader. No shared service key is bundled. The key is masked and
-omitted from command echo. It is stored unencrypted in `DCSTATE.BIN`, so users
-should treat that SD-card file as private.
+Market Watch sends HTTPS requests using ZiModem's `AT&G` downloader. Gold,
+silver, and Bitcoin current prices come from Gold API's documented public
+endpoint, which requires no authentication and requests 30-second caching.
+Arbitrary equities use Finnhub; no shared Finnhub key is bundled. A user key is
+masked, omitted from command echo, and stored unencrypted in `DCSTATE.BIN`, so
+users should treat that SD-card file as private.
 Quote availability, delay, and usage limits depend on the user's Finnhub plan
 and exchange permissions; the display is informational, not trading guidance.
 

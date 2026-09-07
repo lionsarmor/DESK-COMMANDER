@@ -1,3 +1,8 @@
+; Unbanked shared network buffers begin at $9800. Make the compiler reject any
+; future desktop growth into that reserved region instead of producing a PRG
+; that boots and later destroys itself during a Wi-Fi or market operation.
+%memtop $9800
+
 %import desktop
 %import diskio
 %import input
@@ -35,6 +40,10 @@ main {
         ; Bank 0 contains executable code. Larger app data may use other banks,
         ; and every app restores this bank before returning to the desktop.
         load_persistent_state()
+        ; A saved green icon only described the previous session. Start every
+        ; boot unverified; Network Status or COMMS Test turns it green again
+        ; only after the modem proves that the link is live.
+        state_data.write(state_data.NETWORK_CONNECTED, 0)
         preferences.sound_enabled = state_data.read(state_data.PREF_SOUND) != 0
         preferences.use_24_hour_clock = state_data.read(state_data.PREF_CLOCK) != 0
         theme.current_package = state_data.read(state_data.THEME_PACKAGE)

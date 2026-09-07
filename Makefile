@@ -24,29 +24,44 @@ PROGRAM      := $(BUILD_DIR)/main.prg
 FILE_MANAGER := ZZFILEMAN.BIN
 FILE_OPERATIONS := ZZFILEOPS.BIN
 TEXT_EDITOR  := ZZEDITOR.BIN
+PROGRAM_LAUNCHER := ZZLAUNCH.BIN
 NETWORK_APP  := ZZNETWORK.BIN
+NETWORK_PICKER := ZZNETPK.BIN
 MARKET_APP   := ZZMARKET.BIN
 MARKET_NETWORK := ZZMARKETNET.BIN
 STATE_STORE   := ZZSTATE.BIN
 NOTES_APP     := ZZNOTES.BIN
 COMMS_APP     := ZZCOMMS.BIN
+CHAT_NETWORK  := ZZCHATNET.BIN
+COMMS_VISUAL  := ZZCHATUI.BIN
 
 # Bank map for the loadable files above:
 #   4 Files, 5 file operations, 6 editor, 7 network, 8 market UI,
-#   9 market network worker, 10 persistence, 11 Notes, 12 Comms.
+#   9 market network worker, 10 persistence, 11 Notes, 12 Comms,
+#   13 scrollable Wi-Fi picker, 14 external PRG launcher.
 # The filenames use 8.3-safe names so the same build works with HostFS and SD.
-SOURCES      := $(wildcard $(SOURCE_DIR)/*.p8)
+# Keep each loadable bank tied only to the source it actually compiles. The
+# old all-sources dependency made one Comms edit rebuild fourteen unrelated
+# programs, which looked like deskbuild was looping on a slower machine.
+STATE_DEPS   := $(SOURCE_DIR)/state_data.p8
+THEME_DEPS   := $(SOURCE_DIR)/theme.p8 $(STATE_DEPS)
+INPUT_DEPS   := $(SOURCE_DIR)/input.p8 $(SOURCE_DIR)/preferences.p8 $(THEME_DEPS)
+CORE_DEPS    := $(SOURCE_DIR)/main.p8 $(SOURCE_DIR)/desktop.p8 $(SOURCE_DIR)/splash.p8 \
+	$(SOURCE_DIR)/font5x7.p8 $(SOURCE_DIR)/calendar_app.p8 $(SOURCE_DIR)/market_data.p8 \
+	$(SOURCE_DIR)/rolodex_app.p8 $(SOURCE_DIR)/appmeta.p8 $(INPUT_DEPS)
+FILE_DEPS    := $(SOURCE_DIR)/app_mailbox.p8 $(INPUT_DEPS)
+NET_DEPS     := $(SOURCE_DIR)/network_driver.p8 $(SOURCE_DIR)/network_mailbox.p8
 
 .PHONY: all run check sdcard clean setup
 
-all: $(PROGRAM) $(FILE_MANAGER) $(FILE_OPERATIONS) $(TEXT_EDITOR) \
-	$(NETWORK_APP) $(MARKET_APP) $(MARKET_NETWORK) $(STATE_STORE) \
-	$(NOTES_APP) $(COMMS_APP)
+all: $(PROGRAM) $(FILE_MANAGER) $(FILE_OPERATIONS) $(TEXT_EDITOR) $(PROGRAM_LAUNCHER) \
+	$(NETWORK_APP) $(NETWORK_PICKER) $(MARKET_APP) $(MARKET_NETWORK) $(STATE_STORE) \
+	$(NOTES_APP) $(COMMS_APP) $(CHAT_NETWORK) $(COMMS_VISUAL)
 
 setup:
 	./tools/setup-toolchain.sh
 
-$(PROGRAM): $(SOURCES) | $(BUILD_DIR)
+$(PROGRAM): $(CORE_DEPS) | $(BUILD_DIR)
 	@echo "Building DESK COMMANDER..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -57,7 +72,7 @@ $(PROGRAM): $(SOURCES) | $(BUILD_DIR)
 		-asmlist \
 		"$(SOURCE_DIR)/main.p8"
 
-$(FILE_MANAGER): $(SOURCES) | $(BUILD_DIR)
+$(FILE_MANAGER): $(SOURCE_DIR)/file_manager_overlay.p8 $(SOURCE_DIR)/file_manager.p8 $(FILE_DEPS) | $(BUILD_DIR)
 	@echo "Building FILE MANAGER overlay..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -68,7 +83,7 @@ $(FILE_MANAGER): $(SOURCES) | $(BUILD_DIR)
 		"$(SOURCE_DIR)/file_manager_overlay.p8"
 	@cp "$(BUILD_DIR)/file_manager_overlay.bin" "$(FILE_MANAGER)"
 
-$(FILE_OPERATIONS): $(SOURCES) | $(BUILD_DIR)
+$(FILE_OPERATIONS): $(SOURCE_DIR)/file_ops_overlay.p8 $(SOURCE_DIR)/file_ops.p8 $(FILE_DEPS) | $(BUILD_DIR)
 	@echo "Building FILE OPERATIONS overlay..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -79,7 +94,7 @@ $(FILE_OPERATIONS): $(SOURCES) | $(BUILD_DIR)
 		"$(SOURCE_DIR)/file_ops_overlay.p8"
 	@cp "$(BUILD_DIR)/file_ops_overlay.bin" "$(FILE_OPERATIONS)"
 
-$(TEXT_EDITOR): $(SOURCES) | $(BUILD_DIR)
+$(TEXT_EDITOR): $(SOURCE_DIR)/text_editor_overlay.p8 $(SOURCE_DIR)/text_editor.p8 $(FILE_DEPS) | $(BUILD_DIR)
 	@echo "Building TEXT EDITOR ++ overlay..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -90,7 +105,18 @@ $(TEXT_EDITOR): $(SOURCES) | $(BUILD_DIR)
 		"$(SOURCE_DIR)/text_editor_overlay.p8"
 	@cp "$(BUILD_DIR)/text_editor_overlay.bin" "$(TEXT_EDITOR)"
 
-$(NETWORK_APP): $(SOURCES) | $(BUILD_DIR)
+$(PROGRAM_LAUNCHER): $(SOURCE_DIR)/program_launcher_overlay.p8 $(SOURCE_DIR)/program_launcher.p8 $(FILE_DEPS) | $(BUILD_DIR)
+	@echo "Building EXTERNAL PRG LAUNCHER overlay..."
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-out "$(BUILD_DIR)" \
+		-asmlist \
+		"$(SOURCE_DIR)/program_launcher_overlay.p8"
+	@cp "$(BUILD_DIR)/program_launcher_overlay.bin" "$(PROGRAM_LAUNCHER)"
+
+$(NETWORK_APP): $(SOURCE_DIR)/network_overlay.p8 $(SOURCE_DIR)/network_app.p8 $(NET_DEPS) $(INPUT_DEPS) | $(BUILD_DIR)
 	@echo "Building TEXELEC NETWORK overlay..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -101,7 +127,18 @@ $(NETWORK_APP): $(SOURCES) | $(BUILD_DIR)
 		"$(SOURCE_DIR)/network_overlay.p8"
 	@cp "$(BUILD_DIR)/network_overlay.bin" "$(NETWORK_APP)"
 
-$(MARKET_APP): $(SOURCES) | $(BUILD_DIR)
+$(NETWORK_PICKER): $(SOURCE_DIR)/network_picker_overlay.p8 $(SOURCE_DIR)/network_picker.p8 $(SOURCE_DIR)/network_mailbox.p8 $(THEME_DEPS) | $(BUILD_DIR)
+	@echo "Building WIFI NETWORK PICKER overlay..."
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-out "$(BUILD_DIR)" \
+		-asmlist \
+		"$(SOURCE_DIR)/network_picker_overlay.p8"
+	@cp "$(BUILD_DIR)/network_picker_overlay.bin" "$(NETWORK_PICKER)"
+
+$(MARKET_APP): $(SOURCE_DIR)/market_overlay.p8 $(SOURCE_DIR)/market_app.p8 $(SOURCE_DIR)/market_data.p8 $(INPUT_DEPS) | $(BUILD_DIR)
 	@echo "Building MARKET WATCH overlay..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -112,7 +149,7 @@ $(MARKET_APP): $(SOURCES) | $(BUILD_DIR)
 		"$(SOURCE_DIR)/market_overlay.p8"
 	@cp "$(BUILD_DIR)/market_overlay.bin" "$(MARKET_APP)"
 
-$(MARKET_NETWORK): $(SOURCES) | $(BUILD_DIR)
+$(MARKET_NETWORK): $(SOURCE_DIR)/market_fetch_overlay.p8 $(SOURCE_DIR)/market_fetch.p8 $(SOURCE_DIR)/market_data.p8 $(NET_DEPS) $(STATE_DEPS) | $(BUILD_DIR)
 	@echo "Building MARKET NETWORK service..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -123,7 +160,7 @@ $(MARKET_NETWORK): $(SOURCES) | $(BUILD_DIR)
 		"$(SOURCE_DIR)/market_fetch_overlay.p8"
 	@cp "$(BUILD_DIR)/market_fetch_overlay.bin" "$(MARKET_NETWORK)"
 
-$(STATE_STORE): $(SOURCES) | $(BUILD_DIR)
+$(STATE_STORE): $(SOURCE_DIR)/state_overlay.p8 $(SOURCE_DIR)/state_store.p8 $(STATE_DEPS) | $(BUILD_DIR)
 	@echo "Building PERSISTENT STATE service..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -134,7 +171,7 @@ $(STATE_STORE): $(SOURCES) | $(BUILD_DIR)
 		"$(SOURCE_DIR)/state_overlay.p8"
 	@cp "$(BUILD_DIR)/state_overlay.bin" "$(STATE_STORE)"
 
-$(NOTES_APP): $(SOURCES) | $(BUILD_DIR)
+$(NOTES_APP): $(SOURCE_DIR)/notes_overlay.p8 $(SOURCE_DIR)/notes_app.p8 $(INPUT_DEPS) | $(BUILD_DIR)
 	@echo "Building NOTES overlay..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -145,7 +182,7 @@ $(NOTES_APP): $(SOURCES) | $(BUILD_DIR)
 		"$(SOURCE_DIR)/notes_overlay.p8"
 	@cp "$(BUILD_DIR)/notes_overlay.bin" "$(NOTES_APP)"
 
-$(COMMS_APP): $(SOURCES) | $(BUILD_DIR)
+$(COMMS_APP): $(SOURCE_DIR)/comms_overlay.p8 $(SOURCE_DIR)/comms_app.p8 $(SOURCE_DIR)/comms_data.p8 $(INPUT_DEPS) | $(BUILD_DIR)
 	@echo "Building COMMS overlay..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -155,6 +192,28 @@ $(COMMS_APP): $(SOURCES) | $(BUILD_DIR)
 		-asmlist \
 		"$(SOURCE_DIR)/comms_overlay.p8"
 	@cp "$(BUILD_DIR)/comms_overlay.bin" "$(COMMS_APP)"
+
+$(CHAT_NETWORK): $(SOURCE_DIR)/chat_network_overlay.p8 $(SOURCE_DIR)/chat_network.p8 $(SOURCE_DIR)/comms_data.p8 $(NET_DEPS) $(STATE_DEPS) | $(BUILD_DIR)
+	@echo "Building COMMS NETWORK service..."
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-out "$(BUILD_DIR)" \
+		-asmlist \
+		"$(SOURCE_DIR)/chat_network_overlay.p8"
+	@cp "$(BUILD_DIR)/chat_network_overlay.bin" "$(CHAT_NETWORK)"
+
+$(COMMS_VISUAL): $(SOURCE_DIR)/comms_visual_overlay.p8 $(SOURCE_DIR)/comms_visual.p8 $(SOURCE_DIR)/comms_data.p8 $(THEME_DEPS) | $(BUILD_DIR)
+	@echo "Building COMMS VISUAL service..."
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-out "$(BUILD_DIR)" \
+		-asmlist \
+		"$(SOURCE_DIR)/comms_visual_overlay.p8"
+	@cp "$(BUILD_DIR)/comms_visual_overlay.bin" "$(COMMS_VISUAL)"
 
 $(BUILD_DIR):
 	mkdir -p "$(BUILD_DIR)"
@@ -190,7 +249,19 @@ check:
 		-target cx16 \
 		-srcdirs "$(SOURCE_DIR)" \
 		-check \
+		"$(SOURCE_DIR)/program_launcher_overlay.p8"
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-check \
 		"$(SOURCE_DIR)/network_overlay.p8"
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-check \
+		"$(SOURCE_DIR)/network_picker_overlay.p8"
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
 		-target cx16 \
@@ -221,6 +292,18 @@ check:
 		-srcdirs "$(SOURCE_DIR)" \
 		-check \
 		"$(SOURCE_DIR)/comms_overlay.p8"
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-check \
+		"$(SOURCE_DIR)/chat_network_overlay.p8"
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-check \
+		"$(SOURCE_DIR)/comms_visual_overlay.p8"
 
 run: all
 	@echo "Starting the Commander X16 emulator..."
@@ -238,11 +321,12 @@ run: all
 sdcard: all
 	@echo "Preparing Commander X16 SD-card folder..."
 	@mkdir -p "$(SDCARD_DIR)"
+	@rm -f "$(SDCARD_DIR)/ZZNETPICK.BIN"
 	@cp "$(PROGRAM)" "$(SDCARD_DIR)/DESKCMD.PRG"
-	@cp "$(FILE_MANAGER)" "$(FILE_OPERATIONS)" "$(TEXT_EDITOR)" \
-		"$(NETWORK_APP)" "$(MARKET_APP)" "$(MARKET_NETWORK)" \
+	@cp "$(FILE_MANAGER)" "$(FILE_OPERATIONS)" "$(TEXT_EDITOR)" "$(PROGRAM_LAUNCHER)" \
+		"$(NETWORK_APP)" "$(NETWORK_PICKER)" "$(MARKET_APP)" "$(MARKET_NETWORK)" \
 		"$(STATE_STORE)" "$(NOTES_APP)" "$(SDCARD_DIR)/"
-	@cp "$(COMMS_APP)" "$(SDCARD_DIR)/"
+	@cp "$(COMMS_APP)" "$(CHAT_NETWORK)" "$(COMMS_VISUAL)" "$(SDCARD_DIR)/"
 	@echo "Ready: $(SDCARD_DIR)"
 
 clean:
@@ -263,10 +347,18 @@ clean:
 	      "$(BUILD_DIR)/text_editor_overlay.bin" \
 	      "$(BUILD_DIR)/text_editor_overlay.list" \
 	      "$(BUILD_DIR)/text_editor_overlay.vice-mon-list" \
+	      "$(BUILD_DIR)/program_launcher_overlay.asm" \
+	      "$(BUILD_DIR)/program_launcher_overlay.bin" \
+	      "$(BUILD_DIR)/program_launcher_overlay.list" \
+	      "$(BUILD_DIR)/program_launcher_overlay.vice-mon-list" \
 	      "$(BUILD_DIR)/network_overlay.asm" \
 	      "$(BUILD_DIR)/network_overlay.bin" \
 	      "$(BUILD_DIR)/network_overlay.list" \
 	      "$(BUILD_DIR)/network_overlay.vice-mon-list" \
+	      "$(BUILD_DIR)/network_picker_overlay.asm" \
+	      "$(BUILD_DIR)/network_picker_overlay.bin" \
+	      "$(BUILD_DIR)/network_picker_overlay.list" \
+	      "$(BUILD_DIR)/network_picker_overlay.vice-mon-list" \
 	      "$(BUILD_DIR)/market_overlay.asm" \
 	      "$(BUILD_DIR)/market_overlay.bin" \
 	      "$(BUILD_DIR)/market_overlay.list" \
@@ -287,13 +379,25 @@ clean:
 	      "$(BUILD_DIR)/comms_overlay.bin" \
 	      "$(BUILD_DIR)/comms_overlay.list" \
 	      "$(BUILD_DIR)/comms_overlay.vice-mon-list" \
+	      "$(BUILD_DIR)/chat_network_overlay.asm" \
+	      "$(BUILD_DIR)/chat_network_overlay.bin" \
+	      "$(BUILD_DIR)/chat_network_overlay.list" \
+	      "$(BUILD_DIR)/chat_network_overlay.vice-mon-list" \
+	      "$(BUILD_DIR)/comms_visual_overlay.asm" \
+	      "$(BUILD_DIR)/comms_visual_overlay.bin" \
+	      "$(BUILD_DIR)/comms_visual_overlay.list" \
+	      "$(BUILD_DIR)/comms_visual_overlay.vice-mon-list" \
 	      "$(FILE_MANAGER)" \
 	      "$(FILE_OPERATIONS)" \
 	      "$(TEXT_EDITOR)" \
+	      "$(PROGRAM_LAUNCHER)" \
 	      "$(NETWORK_APP)" \
+	      "$(NETWORK_PICKER)" \
 	      "$(MARKET_APP)" \
 	      "$(MARKET_NETWORK)" \
 	      "$(STATE_STORE)" \
 	      "$(NOTES_APP)" \
 	      "$(COMMS_APP)" \
+	      "$(CHAT_NETWORK)" \
+	      "$(COMMS_VISUAL)" \
 	      "FILEMAN.BIN"

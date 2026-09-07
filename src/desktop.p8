@@ -30,77 +30,54 @@ desktop {
     extsub @bank 4 $a003 = open_file_manager() clobbers(A, X, Y)
     extsub @bank 7 $a000 = initialize_network_app() clobbers(A, X, Y)
     extsub @bank 7 $a003 = open_network_app() clobbers(A, X, Y)
+    extsub @bank 13 $a000 = initialize_network_ui() clobbers(A, X, Y)
     extsub @bank 8 $a000 = initialize_market_app() clobbers(A, X, Y)
     extsub @bank 8 $a003 = open_market_app() clobbers(A, X, Y)
+    extsub @bank 9 $a000 = initialize_market_fetch() clobbers(A, X, Y)
+    extsub @bank 9 $a006 = refresh_market_group() clobbers(A, X, Y)
     extsub @bank 11 $a000 = initialize_notes_app() clobbers(A, X, Y)
     extsub @bank 11 $a003 = open_notes_app() clobbers(A, X, Y)
     extsub @bank 12 $a000 = initialize_comms_app() clobbers(A, X, Y)
     extsub @bank 12 $a003 = open_comms_app() clobbers(A, X, Y)
 
+    sub load_bank(str filename, ubyte bank) -> bool {
+        ; This routine itself lives in conventional RAM, so it remains visible
+        ; while $A000-$BFFF is switched to the destination application bank.
+        cx16.rambank(bank)
+        cx16.r0 = diskio.loadlib(filename, $a000)
+        cx16.rambank(0)
+        return cx16.r0 != 0
+    }
+
     sub load_file_suite() -> bool {
-        bool loaded = true
-
-        ; LOADLIB lives in the conventional-memory desktop. Load every bank
-        ; here before entering the high-RAM File Manager, where switching the
-        ; current bank would otherwise hide the running loader itself.
-        cx16.push_rambank(4)
-        cx16.r0 = diskio.loadlib(iso:"ZZFILEMAN.BIN", $a000)
-        cx16.pop_rambank()
-        if cx16.r0 == 0
-            loaded = false
-
-        cx16.push_rambank(5)
-        cx16.r0 = diskio.loadlib(iso:"ZZFILEOPS.BIN", $a000)
-        cx16.pop_rambank()
-        if cx16.r0 == 0
-            loaded = false
-
-        cx16.push_rambank(6)
-        cx16.r0 = diskio.loadlib(iso:"ZZEDITOR.BIN", $a000)
-        cx16.pop_rambank()
-        if cx16.r0 == 0
-            loaded = false
-
+        bool loaded = load_bank(iso:"ZZFILEMAN.BIN", 4)
+        if not load_bank(iso:"ZZFILEOPS.BIN", 5) loaded = false
+        if not load_bank(iso:"ZZEDITOR.BIN", 6) loaded = false
+        if not load_bank(iso:"ZZLAUNCH.BIN", 14) loaded = false
         return loaded
     }
 
     sub load_network_setup() -> bool {
-        cx16.push_rambank(7)
-        cx16.r0 = diskio.loadlib(iso:"ZZNETWORK.BIN", $a000)
-        cx16.pop_rambank()
-        return cx16.r0 != 0
+        bool loaded = load_bank(iso:"ZZNETWORK.BIN", 7)
+        if not load_bank(iso:"ZZNETPK.BIN", 13) loaded = false
+        return loaded
     }
 
     sub load_market_watch() -> bool {
-        bool loaded = true
-
-        cx16.push_rambank(8)
-        cx16.r0 = diskio.loadlib(iso:"ZZMARKET.BIN", $a000)
-        cx16.pop_rambank()
-        if cx16.r0 == 0
-            loaded = false
-
-        cx16.push_rambank(9)
-        cx16.r0 = diskio.loadlib(iso:"ZZMARKETNET.BIN", $a000)
-        cx16.pop_rambank()
-        if cx16.r0 == 0
-            loaded = false
-
+        bool loaded = load_bank(iso:"ZZMARKET.BIN", 8)
+        if not load_bank(iso:"ZZMARKETNET.BIN", 9) loaded = false
         return loaded
     }
 
     sub load_notes() -> bool {
-        cx16.push_rambank(11)
-        cx16.r0 = diskio.loadlib(iso:"ZZNOTES.BIN", $a000)
-        cx16.pop_rambank()
-        return cx16.r0 != 0
+        return load_bank(iso:"ZZNOTES.BIN", 11)
     }
 
     sub load_comms() -> bool {
-        cx16.push_rambank(12)
-        cx16.r0 = diskio.loadlib(iso:"ZZCOMMS.BIN", $a000)
-        cx16.pop_rambank()
-        return cx16.r0 != 0
+        bool loaded = load_bank(iso:"ZZCOMMS.BIN", 12)
+        if not load_bank(iso:"ZZCHATNET.BIN", 15) loaded = false
+        if not load_bank(iso:"ZZCHATUI.BIN", 16) loaded = false
+        return loaded
     }
 
     const uword RAIL_X = 5
@@ -170,6 +147,9 @@ desktop {
         ; The small calendar is a live view of the Calendar app's data.
         calendar_app.initialize()
         market_data.initialize()
+        ; Preserve personal symbols while ensuring the useful keyless assets
+        ; appear for both new and upgraded installations when room exists.
+        market_data.install_featured_assets()
 
         draw_desktop_header()
         draw_icon_rail()
@@ -395,6 +375,7 @@ desktop {
         gfx_lores.text(60, 156, theme.BLUE, iso:"SYMBOL")
         gfx_lores.text(128, 156, theme.BLUE, iso:"LAST")
         gfx_lores.text(205, 156, theme.BLUE, iso:"CHANGE")
+        draw_market_refresh_button(false)
 
         if market_data.count() == 0 {
             gfx_lores.text(66, 180, theme.INK, iso:"CLICK HERE TO ADD STOCKS")
@@ -416,6 +397,37 @@ desktop {
                 draw_market_row(168 + row * 13, market_symbol, market_price,
                                 market_change, color)
             }
+        }
+    }
+
+    sub draw_market_refresh_button(bool busy) {
+        ; A compact circular-arrow control lives in the card heading. Keeping
+        ; it icon-only leaves the at-a-glance panel airy at 320x240.
+        ubyte face = theme.GOLD
+        if busy
+            face = theme.RED
+        gfx_lores.fillrect(284, 141, 20, 11, face)
+        gfx_lores.rect(284, 141, 20, 11, theme.INK)
+        gfx_lores.line(290, 144, 296, 143, theme.INK)
+        gfx_lores.line(296, 143, 299, 146, theme.INK)
+        gfx_lores.line(299, 146, 297, 149, theme.INK)
+        gfx_lores.line(297, 149, 291, 149, theme.INK)
+        gfx_lores.fillrect(288, 143, 3, 3, theme.INK)
+        gfx_lores.fillrect(297, 147, 3, 3, theme.INK)
+    }
+
+    sub refresh_market_glance() {
+        draw_market_refresh_button(true)
+        draw_status(iso:"UPDATING THREE MARKET PRICES...")
+        if load_market_watch() {
+            initialize_market_fetch()
+            market_data.set_requested_stock(market_data.current_page() * 3)
+            refresh_market_group()
+            draw_market_watch()
+            draw_status(iso:"MARKET PRICES UPDATED")
+        } else {
+            draw_market_refresh_button(false)
+            draw_status(iso:"MARKET WATCH APP IS MISSING")
         }
     }
 
@@ -922,6 +934,7 @@ desktop {
 
     sub show_network_setup() {
         if load_network_setup() {
+            initialize_network_ui()
             initialize_network_app()
             open_network_app()
         } else
@@ -1115,7 +1128,10 @@ desktop {
             SECTION_CALCULATOR -> draw_rail_button(CALCULATOR_Y, ICON_CALCULATOR, false)
             SECTION_COMMS -> draw_rail_button(COMMS_Y, ICON_COMMS, false)
             SECTION_SETTINGS -> draw_rail_button(SETTINGS_Y, ICON_SETTINGS, false)
-            SECTION_MARKET -> draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH", false)
+            SECTION_MARKET -> {
+                draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH", false)
+                draw_market_refresh_button(false)
+            }
         }
 
         when new_section {
@@ -1126,7 +1142,10 @@ desktop {
             SECTION_CALCULATOR -> draw_rail_button(CALCULATOR_Y, ICON_CALCULATOR, true)
             SECTION_COMMS -> draw_rail_button(COMMS_Y, ICON_COMMS, true)
             SECTION_SETTINGS -> draw_rail_button(SETTINGS_Y, ICON_SETTINGS, true)
-            SECTION_MARKET -> draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH", true)
+            SECTION_MARKET -> {
+                draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH", true)
+                draw_market_refresh_button(false)
+            }
         }
 
         hovered_section = new_section
@@ -1209,8 +1228,13 @@ desktop {
             }
 
             if input.left_pressed() {
-                update_hover(section_at_pointer())
-                open_selected_section()
+                if input.inside(284, 141, 20, 11) {
+                    preferences.play_click()
+                    refresh_market_glance()
+                } else {
+                    update_hover(section_at_pointer())
+                    open_selected_section()
+                }
             } else if input.key == $0d and hovered_section != SECTION_NONE {
                 preferences.play_click()
                 open_selected_section()

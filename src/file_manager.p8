@@ -35,10 +35,15 @@ file_manager {
     extsub @bank 6 $a000 = initialize_text_editor() clobbers(A, X, Y)
     extsub @bank 6 $a003 = open_text_editor() clobbers(A, X, Y)
 
+    ; Bank 14: one-way handoff from Desk Commander to another X16 PRG.
+    extsub @bank 14 $a000 = initialize_program_launcher() clobbers(A, X, Y)
+    extsub @bank 14 $a003 = launch_program() clobbers(X, Y) -> bool @A
+
     ; Five full CMDR-DOS names are retained. Display text is shortened only in
     ; the scratch buffer, so file operations always receive the real name.
     ubyte[255] entry_names
     ubyte directory_flags
+    ubyte program_flags
     ubyte[29] display_text
 
     ubyte entry_count
@@ -49,6 +54,7 @@ file_manager {
     ubyte double_click_frames
     ubyte message
     ubyte last_dos_code
+    ubyte folder_depth
 
     sub name_for_row(ubyte row) -> str {
         return &entry_names + (row as uword) * NAME_SIZE
@@ -67,11 +73,16 @@ file_manager {
         return (directory_flags & (1 << row)) != 0
     }
 
+    sub row_is_program(ubyte row) -> bool {
+        return (program_flags & (1 << row)) != 0
+    }
+
     sub load_directory_page() {
         uword skipped = 0
 
         entry_count = 0
         directory_flags = 0
+        program_flags = 0
         selected_row = NO_SELECTION
         has_more_entries = false
         last_clicked_row = NO_SELECTION
@@ -92,6 +103,8 @@ file_manager {
                              name_for_row(entry_count), NAME_SIZE - 1)
                 if diskio.list_filetype == "dir"
                     directory_flags |= 1 << entry_count
+                else if diskio.list_filetype == "prg"
+                    program_flags |= 1 << entry_count
                 entry_count++
             }
             diskio.lf_end_list()
@@ -346,6 +359,8 @@ file_manager {
         if row_is_directory(selected_row) {
             diskio.chdir(name_for_row(selected_row))
             last_dos_code = diskio.status_code()
+            if last_dos_code < 20
+                folder_depth++
             page_start = 0
             load_directory_page()
             if last_dos_code >= 20
@@ -355,6 +370,21 @@ file_manager {
         }
 
         selected_to_mailbox()
+        if row_is_program(selected_row) {
+            ; Launchable X16 PRGs are handed to a tiny dedicated bank. A
+            ; successful launch never returns; failure redraws File Manager.
+            diskio.lf_end_list()
+            initialize_program_launcher()
+            if launch_program()
+                return
+
+            ; A load error leaves Desk Commander intact, so return to Files.
+            message = MESSAGE_ERROR
+            last_dos_code = diskio.status_code()
+            draw_window()
+            return
+        }
+
         initialize_text_editor()
         open_text_editor()
         load_directory_page()
@@ -362,8 +392,12 @@ file_manager {
     }
 
     sub go_up() {
+        if folder_depth == 0
+            return
         diskio.chdir(iso:"_")
         last_dos_code = diskio.status_code()
+        if last_dos_code < 20
+            folder_depth--
         page_start = 0
         load_directory_page()
         if last_dos_code >= 20
@@ -385,6 +419,7 @@ file_manager {
         ; loader is visible. Calling LOADLIB from this bank after switching to
         ; another bank would hide the code that is currently executing.
         initialize_file_ops()
+        folder_depth = 0
         page_start = 0
         load_directory_page()
         draw_window()
@@ -459,6 +494,13 @@ file_manager {
         } until close_window or input.key == $1b
 
         diskio.lf_end_list()
+        ; CMDR-DOS keeps one process-wide current directory. Always return to
+        ; the folder where Desk Commander started before its overlay loader
+        ; tries to find another app binary.
+        while folder_depth > 0 {
+            diskio.chdir(iso:"_")
+            folder_depth--
+        }
         input.key = 0
     }
 }

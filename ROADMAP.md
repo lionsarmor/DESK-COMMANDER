@@ -17,12 +17,15 @@
 The visual shell and several interaction prototypes work, and a versioned
 device-8 state image now survives normal restarts. DESK COMMANDER has now
 booted and run successfully on a physical Commander X16. General text-file
-opening/editing works and the physical TexElec UART is detected at `$9FE0`, but
-ZiModem does not yet answer the alpha's strict `ATI4` probe. Fixing that modem
-transport is the immediate P0 priority; connected apps, reminders, printing,
-and release packaging remain unfinished. Alpha builds intentionally contain
-sample records; V1 must start blank unless the user explicitly enables demo
-data.
+opening/editing works, the physical TexElec UART is detected at `$9FE0`, and a
+real ZiModem `OK` response and ESP32 Firmware v4.0.2 banner have now been
+received. A bad secondary-identification gate kept Scan/Join disabled despite
+that proof, while a cold modem required a second manual Detect. The current
+build removes that gate and performs the settled retry automatically.
+Completing Scan/Join/Status testing remains the immediate P0 priority; connected apps,
+reminders, printing, and release packaging remain unfinished. Alpha builds
+intentionally contain sample records; V1 must start blank unless the user
+explicitly enables demo data.
 
 Status marks used below:
 
@@ -62,35 +65,36 @@ buttons, and Settings page are the intended interface.
 | Keyboard | 🟡 | Desktop arrow selection and app-specific keys work; universal focus does not |
 | Rendering | 🟡 | Desktop and apps render on physical hardware; long-session and edge-case testing remains |
 | Notes | 🟡 | Six short saved notes with Add, Delete, wheel/arrow scrolling, and scrollbar |
-| Calendar | 🟡 | Month navigation and 24 editable, color-coded saved events |
+| Calendar | 🟡 | Month navigation and 24 editable, color-coded saved events with a title-field dirty region |
 | Rolodex | 🟡 | Search, dirty-region scrolling, contact details, and persistent deletion state over demo contacts |
 | Calculator | ✅ | Mouse and keyboard arithmetic, decimals, backspace, and divide-by-zero handling |
-| File Manager | 🟡 | Device-8 listing, file/folder icons, scrollbar/wheel paging, double-click Open, New File/Folder, Rename, Move, and confirmed Delete |
+| File Manager | 🟡 | Device-8 listing, file/folder icons, paging, file operations, stable directory restoration, text editing, and external PRG launch |
 | Text Editor ++ | 🟡 | 2 KB multiline editor with pointer placement, Save, Save As, dirty state, and clean return to Files |
 | Settings | 🟡 | Theme, pointer, sound, and clock persist; Network and About open |
-| Comms | 🟡 | Full-screen direct/server chat mockup with selection and presence colors |
-| Market Watch | 🟡 | Saved 12-symbol watchlist, Finnhub HTTPS quotes, cached values, and 30-second three-row rotation |
-| TexElec network | 🟡 | Physical UART probe succeeds at `$9FE0`; ZiModem response currently fails, blocking Wi-Fi and connected apps |
+| Comms | 🟡 | Multi-bank LAN chat client plus browser console, separate saved identity/host, persistent offline friends, unified groups, presence colors, diagnostics, and two-way messages |
+| Market Watch | 🟡 | Saved watchlist/quotes, cross-power-cycle public-asset comparison, Finnhub HTTPS, and three-row rotation |
+| TexElec network | 🟡 | Physical UART, scan, selectable SSIDs, join, and link status work; the R13 screen adds flicker-free list scrolling and immediate action feedback |
 | Persistence | 🟡 | Versioned `DCSTATE.BIN` preserves relevant alpha state after normal shutdown; atomic recovery remains |
 | Printing and clipboard | ⬜ | Not implemented |
 
 ## Unfinished V1 work
 
-### 0. P0 — Restore physical ZiModem communication
+### 0. P0 — Stabilize physical ZiModem communication
 
-This is the top priority. Do not expand Comms or Market Watch networking until
-this acceptance sequence works on the physical card.
+The TexElec card now detects, joins Wi-Fi, completes the connection test, and
+reaches the LAN chat server on physical hardware. Reliability remains P0.
 
 - [ ] Run the official ROMTERM at `$9FE0`, 115200 baud, 8N1, and RTS/CTS; record
       the exact working configuration and ZiModem firmware reported by `ATI`.
-- [ ] Compare ROMTERM's UART initialization with `network_driver.p8`, including
-      divisor, FIFO, modem-control, CTS/RTS polarity, and Option Pin A state.
-- [ ] Force a known ZiModem command state before identification: command mode,
+- [x] Compare a working X16 UART implementation with `network_driver.p8` and
+      align divisor, FIFO, modem-control, CTS/RTS, and Option Pin A state.
+- [x] Force a known ZiModem command state before identification: command mode,
       responses enabled, verbose replies, ASCII translation, and known line endings.
-- [ ] Accept both verbose `OK` and terse numeric `0` success replies.
+- [x] Accept both verbose `OK` and terse numeric `0` success replies.
+- [x] Accept a final `OK` without CR/LF after the UART becomes quiet.
 - [ ] Detect and explain quiet mode, unexpected baud, stream mode, PETSCII mode,
       transmit timeout, receive timeout, and malformed responses.
-- [ ] Show a bounded raw-response diagnostic view instead of replacing every
+- [x] Show a bounded raw-response diagnostic view instead of replacing every
       failure with `ZIMODEM DID NOT ANSWER`.
 - [ ] Add selectable baud rates for recovery, while keeping 115200 the default.
 - [ ] Verify `ATI4`, Wi-Fi scan, join, saved configuration, IP status, DNS ping,
@@ -109,7 +113,7 @@ this acceptance sequence works on the physical card.
 - [ ] Add reusable text fields with cursor movement, insertion, deletion, masking,
       horizontal scrolling, and maximum-length handling.
 - [ ] Add reusable confirmation, warning, error, and unsaved-change dialogs.
-- [ ] Give pressed and disabled buttons distinct visual states.
+- [ ] Give pressed and disabled buttons distinct visual states across every app. Network Setup now gives immediate in-panel progress feedback.
 - [ ] Add wheel scrolling where lists exceed the visible area.
 - [ ] Decide whether double-click and right-click add enough value for V1.
 - [ ] Audit hit boxes at screen edges and after every theme/pointer change.
@@ -137,6 +141,8 @@ this acceptance sequence works on the physical card.
 - [x] Implement New File with user-selected names and extensions.
 - [x] Implement same-volume Move using CMDR-DOS rename-to-path behavior.
 - [x] Implement general file Open plus Text Editor ++ Save and Save As.
+- [x] Launch CMDR-DOS PRG/AUTOBOOT entries and leave ordinary files in Text Editor++.
+- [x] Restore the starting directory when Files closes so app overlays do not become `MISSING`.
 - [ ] Implement Copy and optional file-type filtering/default-app rules.
 - [ ] Add destination browsing to Move instead of requiring a typed path.
 - [ ] Confirm destructive operations and explain failures in plain language.
@@ -161,6 +167,7 @@ this acceptance sequence works on the physical card.
 
 ### 5. Calendar, appointments, and tasks
 
+- [x] Limit event-title typing redraws to the input-field dirty region.
 - [ ] Read today's month/year/day from the RTC rather than fixed alpha defaults.
 - [ ] Support more than one event on the same date.
 - [ ] Add optional start time, end time, location, contact, and longer description.
@@ -217,43 +224,84 @@ Target hardware: [TexElec Commander X16 921.6Kbps Serial & ESP32 Network Card](h
 - [x] Use `ATI4` to identify ZiModem and read its firmware/version response.
 - [ ] Make the identification probe tolerate/reset saved ZiModem modes and
       succeed on the physically detected card.
-- [ ] Expand the working `ATW5` scan response into selectable access points with parsed signal/security indicators.
-- [x] Add manual SSID entry and a masked password field.
+- [ ] Add parsed signal-strength and security indicators to scanned access points.
+- [x] Parse up to ten scan results into one highlighted, scrollable SSID list
+      with mouse, arrow-key, and wheel selection; keep a masked,
+      case-preserving password field.
+- [x] Limit SSID scrolling and selection redraws to the black list-panel dirty
+      region, avoiding the harsh full-window flash seen on real hardware.
+- [x] Replace overflowing Network button labels with distinct colored action
+      icons and show Detecting, Scanning, Connecting, Checking, and
+      Disconnecting feedback before bounded modem operations begin.
 - [x] Connect with the appropriate `ATW"SSID,PASSWORD"` command.
 - [x] Remember the last successful SSID and last-confirmed link indicator without storing the password.
 - [ ] Expand the working `ATI2` IP check to show router and richer connection state.
-- [ ] Test connectivity using ZiModem's ping facility.
+- [x] Test connectivity from Comms with a disposable TCP connection to
+      Cloudflare's numeric `1.1.1.1:443` endpoint, then close it with `ATH`.
+- [x] Separate missing modem, connection failure, and UART timeout results;
+      avoid treating an unreliable ICMP response as Wi-Fi status.
 - [ ] Save successful modem configuration with `AT&W` only after confirmation.
 - [x] Never save or display the Wi-Fi password in DESK COMMANDER's own plain-text files.
 - [ ] Complete clear Card Missing, Modem Not Ready, Wi-Fi Failed, DNS Failed,
       Timed Out, and Offline states.
 - [ ] Expose one shared connection API to Comms and Market Watch.
 - [x] Preserve/restore X16 RAM-bank state around the loadable Network Setup app.
-- [ ] 🔬 Re-test the revised TexElec card at sustained traffic rates. Current
-      hardware result: UART detected at `$9FE0`; ZiModem did not answer.
+- [ ] 🔬 Soak-test repeated scan, reconnect, Comms sync/send, and Market Watch
+      traffic on the physical card without UI freezes or stale sessions.
 
 ### 10. Comms
 
-- [ ] Replace compiled demo people and servers with saved user entries.
-- [ ] Add contact/server creation, editing, removal, and ordering.
-- [ ] Add a working composer with keyboard editing and Send behavior.
-- [ ] Define the first supported chat protocol and server contract.
+- [x] Replace compiled demo people/rooms with server-backed entries.
+- [x] Save offline friend names without requiring an active account first.
+- [ ] Add X16-side friend removal/group leave, editing, and ordering.
+- [x] Add friend, group, and group-member creation flows.
+- [x] Add a working composer with keyboard editing and Send behavior.
+- [x] Define and implement the first bounded LAN HTTP chat protocol/server contract.
 - [ ] Implement connect, authentication, reconnect, disconnect, and logout flows.
-- [ ] Route network traffic through the shared TexElec/ZiModem service.
-- [ ] Store bounded conversation history safely or clearly mark sessions as temporary.
-- [ ] Implement real online, away, offline, unread, and connection-error state.
+- [x] Route network traffic through the TexElec/ZiModem HTTP service.
+- [x] Persist bounded conversation history atomically on the alpha Python server.
+- [x] Save the X16 username and server address in `DCSTATE.BIN`.
+- [x] Consolidate duplicate Servers and group chats into one Groups model, with
+      automatic migration of existing server data.
+- [x] Add scrollable Friend and Group lists with manual Sync/Test feedback.
+- [x] Implement online, away, offline, and connection-error colors.
+- [ ] Add unread indicators and a background presence heartbeat on the X16.
 - [ ] Prevent a slow connection from freezing mouse, clock, alarms, or redraws.
 - [ ] Keep credentials out of logs and unprotected organizer files.
-- [ ] Decide which group/server features are V1 and which remain post-V1.
+- [x] Choose one bounded V1 room model: Groups.
+- [x] Add browser-side friend removal and group-leave controls.
+- [x] Add browser X16 activity monitoring and compact-protocol preview.
+
+#### Public connectivity and server hardening
+
+- [x] Fix ZiModem LAN downloads to use native `AT&G"HOST:PORT/path"` syntax.
+- [x] Keep local server data atomic and persistent in `server/chat-data.json`.
+- [ ] Accept a saved hostname/HTTPS origin in addition to a 15-character IPv4
+      LAN address; do not append port 8088 when an HTTPS origin supplies 443.
+- [ ] Add authenticated sessions so a remote caller cannot impersonate any
+      username merely by putting it in a URL.
+- [ ] Enforce owner/member authorization for friend, group, and delete
+      operations on every server endpoint.
+- [ ] Move state-changing operations and message text out of GET query strings.
+- [ ] Put the public service behind TLS and remove wildcard CORS.
+- [ ] Add request-size limits, rate limits, audit-safe logs, backup/restore, and
+      malformed-data recovery before exposing the service to the internet.
+- [ ] Add authenticated delete/leave flows for friends, groups, and accounts.
+- [ ] Choose a stable deployment: a public VPS with a fixed address, or a named
+      tunnel/domain. Use a temporary tunnel only for short hardware tests.
+- [ ] Test local hotspot, isolated guest Wi-Fi, lost-link, reconnect, server
+      restart, and power-cycle behavior on the physical Commander X16.
 
 ### 11. Market Watch
 
 - [x] Choose and document Finnhub's compact quote endpoint; users supply keys subject to their own plan limits.
+- [x] Add keyless whole-dollar prices for Gold (`XAU`), Silver (`XAG`), and Bitcoin (`BTC`) through Gold API, with numeric movement measured from the previous refresh.
 - [ ] 🔬 Confirm ZiModem HTTPS and the Finnhub endpoint on the physical TexElec card.
-- [x] Add a saved 12-symbol watchlist with Add and Delete; default to GOOG, MSFT, and TSLA.
+- [x] Add a saved 12-symbol watchlist with Add and Remove; preserve existing entries and suggest GOOG, MSFT, TSLA, XAU, XAG, and BTC.
 - [x] Fetch and parse symbol, last price, and percentage change.
 - [x] Cache the latest result in VERA RAM and show explicit offline values on failure.
-- [x] Add manual three-quote refresh and rotate cached desktop groups every 30 seconds without extra requests.
+- [x] Add manual three-quote refresh, a compact desktop refresh control with busy feedback, and cached 30-second page rotation.
+- [ ] 🔬 Confirm the XAU/XAG/BTC keyless HTTPS responses on the physical TexElec card.
 - [ ] Add quote timestamps and an optional conservative automatic network-refresh interval.
 - [ ] Handle malformed replies, unavailable symbols, rate limits, and long values.
 - [x] Label potentially delayed data honestly and document that it is not trading guidance.
@@ -381,8 +429,11 @@ V1 does not ship until:
 - Default network UART: **IO7-low `$9FE0`, 115200 baud, RTS/CTS**
 - Window model: one foreground app/overlay beneath the persistent top bar
 - Loadable apps: Files in bank 4, file operations in bank 5, editor in bank 6,
-  Network Setup in bank 7, Market Watch in bank 8, quote fetching in bank 9,
-  persistence in bank 10, Notes in bank 11, and Comms in bank 12
+  Network Setup in bank 7, its SSID picker in bank 13, Market Watch in bank 8,
+  quote fetching in bank 9,
+  persistence in bank 10, Notes in bank 11, Comms interaction in bank 12, the
+  external PRG handoff in bank 14, chat HTTP in bank 15, and chat rendering in
+  bank 16
 - Text buffer: 2 KB in VERA RAM for the current alpha
 - Desktop navigation: icon rail and glance panels; no decorative menu strip
 

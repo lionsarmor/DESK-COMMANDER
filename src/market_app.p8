@@ -10,8 +10,9 @@
 ; -----------------------------------------------------------------------------
 ;
 ; The watchlist is useful offline and caches the most recent quote in VERA RAM.
-; Online refreshes use Finnhub's compact quote endpoint through ZiModem's HTTPS
-; downloader. The user's API key is masked in the UI and saved with app state.
+; Stocks use Finnhub's compact quote endpoint. Gold, silver, and Bitcoin use
+; Gold API's public current-price endpoint and require no key. The optional
+; Finnhub key is masked in the UI and saved with app state.
 
 market_app {
     const ubyte VISIBLE_ROWS = 7
@@ -19,7 +20,7 @@ market_app {
     ; Bank 9 owns HTTPS/UART work so this interface stays comfortably inside
     ; bank 8. The desktop loads both halves before opening Market Watch.
     extsub @bank 9 $a000 = initialize_market_fetch() clobbers(A, X, Y)
-    extsub @bank 9 $a003 = refresh_market_quote() clobbers(A, X, Y)
+    extsub @bank 9 $a006 = refresh_market_group() clobbers(A, X, Y)
 
     ubyte selected
     ubyte scroll_offset
@@ -97,17 +98,19 @@ market_app {
     sub draw_window() {
         gfx_lores.fillrect(0, 18, 320, 222, theme.PAPER)
         gfx_lores.fillrect(0, 18, 320, 27, theme.BLUE)
-        gfx_lores.text(8, 25, theme.PAPER, iso:"MARKET WATCH")
-        gfx_lores.text(22, 47, theme.BLUE, iso:"SYMBOL")
-        gfx_lores.text(112, 47, theme.BLUE, iso:"PRICE")
-        gfx_lores.text(218, 47, theme.BLUE, iso:"CHANGE")
+        gfx_lores.text(8, 25, theme.PAPER, iso:"MARKET WATCH // USD")
+        gfx_lores.disc(300, 31, 4, theme.GREEN)
+        gfx_lores.text(22, 47, theme.BLUE, iso:"ASSET")
+        gfx_lores.text(112, 47, theme.BLUE, iso:"USD PRICE")
+        gfx_lores.text(218, 47, theme.BLUE, iso:"MOVE")
         draw_rows()
         draw_status()
-        draw_button(8, 42, iso:"ADD")
-        draw_button(54, 58, iso:"DELETE")
-        draw_button(116, 60, iso:"API KEY")
-        draw_button(180, 72, iso:"UPDATE 3")
-        draw_button(256, 56, iso:"DONE")
+        draw_button(5, 41, iso:"ADD")
+        draw_button(50, 55, iso:"REMOVE")
+        draw_button(109, 66, iso:"REFRESH")
+        ; Short labels stay comfortably inside their physical X16 hit boxes.
+        draw_button(179, 72, iso:"KEY")
+        draw_button(255, 58, iso:"DONE")
     }
 
     sub valid_symbol_key(ubyte key) -> bool {
@@ -227,29 +230,12 @@ market_app {
             api_key[index] = 0
     }
 
-    sub refresh_quote(ubyte stock) {
-        if not market_data.has_api_key() {
-            copy_status(iso:"SET YOUR FREE FINNHUB API KEY FIRST")
-            return
-        }
-        market_data.set_requested_stock(stock)
-        refresh_market_quote()
-        if market_data.state(stock) == market_data.STATE_FRESH
-            copy_status(iso:"UPDATED - DATA MAY BE DELAYED")
-        else
-            copy_status(iso:"QUOTE FAILED - CHECK WIFI, KEY, SYMBOL")
-    }
-
     sub refresh_visible() {
-        ubyte stock = (selected / 3) * 3
-        ubyte stop = stock + 3
-
-        if stop > market_data.count()
-            stop = market_data.count()
-        while stock < stop {
-            refresh_quote(stock)
-            stock++
-        }
+        market_data.set_requested_stock((selected / 3) * 3)
+        copy_status(iso:"CONTACTING MARKET SERVICES...")
+        draw_status()
+        refresh_market_group()
+        copy_status(iso:"REFRESH COMPLETE - CHECK EACH ROW")
     }
 
     sub remove_selected() {
@@ -282,7 +268,7 @@ market_app {
         initialize_market_fetch()
         selected = 0
         scroll_offset = 0
-        copy_status(iso:"ADD SYMBOLS, SET API KEY, THEN UPDATE")
+        copy_status(iso:"XAU XAG BTC: FREE // STOCKS: KEY")
         draw_window()
 
         ; Consume the click that launched Market Watch so it cannot also hit
@@ -299,19 +285,19 @@ market_app {
                         selected = scroll_offset + row
                         draw_rows()
                     }
-                } else if input.inside(8, 216, 42, 17) {
+                } else if input.inside(5, 216, 41, 17) {
                     add_symbol()
                     draw_window()
-                } else if input.inside(54, 216, 58, 17) {
+                } else if input.inside(50, 216, 55, 17) {
                     remove_selected()
                     draw_window()
-                } else if input.inside(116, 216, 60, 17) {
-                    set_api_key()
-                    draw_window()
-                } else if input.inside(180, 216, 72, 17) {
+                } else if input.inside(109, 216, 66, 17) {
                     refresh_visible()
                     draw_window()
-                } else if input.inside(256, 216, 56, 17)
+                } else if input.inside(179, 216, 72, 17) {
+                    set_api_key()
+                    draw_window()
+                } else if input.inside(255, 216, 58, 17)
                     close_window = true
             }
 

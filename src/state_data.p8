@@ -24,10 +24,14 @@ state_data {
     const uword NOTES = BASE + 16       ; 144 bytes: offsets 16..159
     const uword CALENDAR = BASE + 160   ; 620 bytes: offsets 160..779
     const uword ROLODEX = BASE + 780    ; 20 bytes: offsets 780..799
-    const uword NETWORK = BASE + 800    ; network data begins at offset 800
-    ; Last confirmed link state. This is a boot-time indicator, not a live
-    ; hardware probe; opening Network Setup and pressing STATUS refreshes it.
-    const uword NETWORK_CONNECTED = NETWORK + 26
+    const uword NETWORK = BASE + 800    ; marker + 33-byte saved SSID field
+    ; Last link result from this running session. Boot clears it so the header
+    ; never presents yesterday's successful connection as a live green icon.
+    const uword NETWORK_CONNECTED = NETWORK + 34
+
+    ; Saved Comms identity and LAN server address. Friends, rooms, and message
+    ; history live on the chat server and are fetched into a separate cache.
+    const uword COMMS = BASE + 850
 
     ; Market Watch owns the final 768 bytes, offsets 1280..2047.
     const uword MARKET = BASE + $0500

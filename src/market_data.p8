@@ -38,8 +38,9 @@ market_data {
         uword offset
 
         if read(BASE) == 'M' and read(BASE + 1) == 'R' and
-           read(BASE + 2) == 'K' and read(BASE + 3) == 'T'
+           read(BASE + 2) == 'K' and read(BASE + 3) == 'T' {
             return
+        }
 
         ; A new profile begins with three useful requested defaults.
         for offset in 0 to 479
@@ -58,6 +59,17 @@ market_data {
         }
         write(BASE + 4, 3)
         state_data.save()
+    }
+
+    sub install_featured_assets() {
+        ; add() safely stops at MAX_STOCKS, so a full personal watchlist wins
+        ; over the suggested built-in assets.
+        if not contains(iso:"XAU")
+            void add(iso:"XAU")
+        if not contains(iso:"XAG")
+            void add(iso:"XAG")
+        if not contains(iso:"BTC")
+            void add(iso:"BTC")
     }
 
     sub count() -> ubyte {
@@ -109,6 +121,20 @@ market_data {
 
     sub copy_symbol(ubyte index, str destination) {
         copy_from(record_address(index), destination, 5)
+    }
+
+    sub is_public_asset(ubyte index) -> bool {
+        ; XAU (gold), XAG (silver), and BTC use Gold API's keyless endpoint.
+        ; Compare stored ISO/ASCII bytes directly; no temporary string needed.
+        uword address = record_address(index)
+        if read(address) == $58 and read(address + 1) == $41 and
+           (read(address + 2) == $55 or read(address + 2) == $47) and
+           read(address + 3) == 0
+            return true
+        if read(address) == $42 and read(address + 1) == $54 and
+           read(address + 2) == $43 and read(address + 3) == 0
+            return true
+        return false
     }
 
     sub copy_price(ubyte index, str destination) {
@@ -201,8 +227,12 @@ market_data {
 
     sub set_error(ubyte index) {
         uword address = record_address(index)
-        copy_to(address + 6, iso:"OFFLINE", 11)
-        copy_to(address + 18, iso:"--", 10)
+        ; Keep a valid cached price as the next comparison baseline. A brief
+        ; network failure must not erase yesterday's/last session's history.
+        if read(address + 6) < '0' or read(address + 6) > '9' {
+            copy_to(address + 6, iso:"OFFLINE", 11)
+            copy_to(address + 18, iso:"--", 10)
+        }
         write(address + 29, STATE_ERROR)
         state_data.save()
     }

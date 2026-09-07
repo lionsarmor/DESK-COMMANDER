@@ -139,6 +139,19 @@ calendar_app {
         gfx_lores.text(77, 101, theme.INK, event_title_buffer)
     }
 
+    sub draw_event_title_field() {
+        ; The title is the only part of the event window that changes while
+        ; somebody types. Repainting this small dirty region avoids the harsh
+        ; flash caused by drawing the entire modal for every character.
+        ubyte event_slot = event_slot_for(selected_day)
+
+        gfx_lores.fillrect(72, 97, 182, 16, theme.PAPER)
+        if event_slot == NO_EVENT_SLOT
+            gfx_lores.text(77, 101, theme.SOFT_BLUE, iso:"TYPE EVENT NAME")
+        else
+            draw_event_title(event_slot)
+    }
+
     sub event_slot_for(ubyte day) -> ubyte {
         ubyte slot
 
@@ -451,11 +464,7 @@ calendar_app {
 
         ; Editable title field
         gfx_lores.fillrect(69, 94, 188, 22, theme.INK)
-        gfx_lores.fillrect(72, 97, 182, 16, theme.PAPER)
-        if event_slot == NO_EVENT_SLOT
-            gfx_lores.text(77, 101, theme.SOFT_BLUE, iso:"TYPE EVENT NAME")
-        else
-            draw_event_title(event_slot)
+        draw_event_title_field()
 
         gfx_lores.text(70, 119, theme.BLUE, iso:"TYPE")
         draw_editor_type_button(70, 130, 54, theme.RED, iso:"APPT",
@@ -546,7 +555,7 @@ calendar_app {
 
             if input.key != 0 and input.key != $1b {
                 edit_event_title(input.key)
-                draw_event_editor()
+                draw_event_title_field()
             }
         } until close_editor or input.key == $1b
 
