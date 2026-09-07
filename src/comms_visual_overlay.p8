@@ -5,6 +5,6 @@
 
 main {
     %jmptable (comms_visual.draw, comms_visual.draw_sidebar,
-               comms_visual.draw_messages)
+               comms_visual.draw_messages, comms_visual.draw_composer)
     sub start() { }
 }

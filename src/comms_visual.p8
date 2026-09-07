@@ -5,11 +5,17 @@
 ; Drawing-only half of Comms. Keeping pixels in bank 16 leaves bank 12 free
 ; for input flow and bank 15 free for ZiModem HTTP work.
 comms_visual {
+    ; Presence codes arrive from the server as ASCII bytes.
+    const ubyte PRESENCE_ONLINE = $4f
+    const ubyte PRESENCE_AWAY = $41
+
     const ubyte DIRECT_ROWS = 4
     const ubyte GROUP_ROWS = 3
     ubyte[33] name_text
     ubyte[33] sender_text
     ubyte[33] message_text
+    ubyte[33] draft_text
+    ubyte[24] visible_draft
     ubyte[32] username
     ubyte[30] status_text
 
@@ -40,9 +46,9 @@ comms_visual {
         ubyte presence = comms_data.friend_presence(item)
         comms_data.copy_friend(item, name_text)
         gfx_lores.fillrect(7, y, 96, 16, theme.NAVY)
-        if presence == 'O'
+        if presence == PRESENCE_ONLINE
             gfx_lores.disc(15, y + 8, 3, theme.GREEN)
-        else if presence == 'A'
+        else if presence == PRESENCE_AWAY
             gfx_lores.disc(15, y + 8, 3, theme.GOLD)
         else
             gfx_lores.disc(15, y + 8, 3, theme.RED)
@@ -81,8 +87,19 @@ comms_visual {
         comms_data.selected_name(name_text)
         gfx_lores.fillrect(106, 59, 214, 181, theme.PAPER)
         gfx_lores.fillrect(106, 59, 214, 25, theme.SOFT_BLUE)
-        if name_text[0] == 0 gfx_lores.text(114, 68, theme.NAVY, iso:"CHOOSE A CONVERSATION")
-        else gfx_lores.text(114, 68, theme.NAVY, name_text)
+        if name_text[0] == 0
+            gfx_lores.text(114, 68, theme.NAVY, iso:"CHOOSE A CONVERSATION")
+        else {
+            gfx_lores.text(114, 68, theme.NAVY, name_text)
+            ; History controls only belong to an open conversation. Hiding
+            ; them in the empty state prevents overlap with its longer title.
+            gfx_lores.text(245, 68, theme.BLUE, iso:"^")
+            gfx_lores.text(260, 68, theme.BLUE, iso:"v")
+            if comms_data.message_offset() == 0
+                gfx_lores.text(276, 68, theme.BLUE, iso:"NEW")
+            else
+                gfx_lores.text(276, 68, theme.BLUE, iso:"OLD")
+        }
         if comms_data.message_count() > 0 {
             for row in 0 to comms_data.message_count() - 1 {
                 ubyte y = 90 + row * 28
@@ -96,9 +113,37 @@ comms_visual {
         comms_data.get_status(status_text)
         gfx_lores.fillrect(110, 198, 202, 11, theme.PAPER)
         gfx_lores.text(113, 201, comms_data.status_color(), status_text)
+        draw_composer()
+    }
+
+    sub draw_composer() {
+        ; The server accepts 32 characters. The field shows the newest 23 as
+        ; the user types, giving the small X16 window normal horizontal scroll
+        ; behavior instead of opening a second modal dialog.
+        comms_data.get_message(draft_text)
+        ubyte length = 0
+        while draft_text[length] != 0 and length < 32
+            length++
+        ubyte source = 0
+        if length > 23
+            source = length - 23
+        ubyte output = 0
+        while draft_text[source] != 0 and output < 23 {
+            visible_draft[output] = draft_text[source]
+            source++
+            output++
+        }
+        visible_draft[output] = 0
+
         gfx_lores.fillrect(111, 211, 145, 21, theme.PAPER)
-        gfx_lores.rect(111, 211, 145, 21, theme.BLUE)
-        gfx_lores.text(117, 218, theme.SOFT_BLUE, iso:"TYPE MESSAGE...")
+        if comms_data.composer_focused()
+            gfx_lores.rect(111, 211, 145, 21, theme.GREEN)
+        else
+            gfx_lores.rect(111, 211, 145, 21, theme.BLUE)
+        if visible_draft[0] == 0
+            gfx_lores.text(117, 218, theme.SOFT_BLUE, iso:"TYPE MESSAGE...")
+        else
+            gfx_lores.text(117, 218, theme.INK, visible_draft)
         gfx_lores.fillrect(261, 211, 51, 21, theme.BLUE)
         gfx_lores.text(270, 218, theme.PAPER, iso:"SEND")
     }

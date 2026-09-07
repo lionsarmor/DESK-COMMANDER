@@ -2,82 +2,71 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Desk Commander Comms Console</title>
+  <title>RODDY // Desk Commander Master Console</title>
   <style>
-    :root{color-scheme:dark;--bg:#070a14;--panel:#121a31;--line:#304572;--text:#f7f9ff;--muted:#91a1c9;--blue:#4774ff;--cyan:#39d8ff;--green:#25ee87;--yellow:#ffd43b;--red:#ff496c}
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 18% 0,#203b7a 0,var(--bg) 42%);color:var(--text);font:15px Inter,ui-sans-serif,system-ui,sans-serif}
-    header{height:68px;padding:0 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #375290;background:#080d1ddd;backdrop-filter:blur(12px);position:sticky;top:0;z-index:3}header strong{letter-spacing:.18em;font-size:18px}.badge{padding:7px 11px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
-    main{max-width:1240px;margin:22px auto;padding:0 18px;display:grid;grid-template-columns:350px minmax(0,1fr);gap:16px}.stack{display:grid;gap:14px;align-content:start}
-    section{background:linear-gradient(145deg,#151e38ee,#0f162bee);border:1px solid var(--line);border-radius:15px;padding:16px;box-shadow:0 18px 50px #0006}h2,h3{margin:0 0 11px;letter-spacing:.03em}h3{font-size:14px;text-transform:uppercase;color:#cad5f5}.hint,small{color:var(--muted)}.hint{margin:0 0 10px;line-height:1.45}
-    input,select,button{min-width:0;border:1px solid var(--line);border-radius:9px;background:#090f21;color:var(--text);padding:10px;font:inherit}input{width:100%}button{background:linear-gradient(#5680ff,#3562ee);font-weight:800;cursor:pointer}button:hover{filter:brightness(1.12)}button:active{transform:translateY(1px)}button.secondary{background:#1c294a}.row{display:flex;gap:7px}.row>*{flex:1}.connection{border-color:#4875ff;background:linear-gradient(135deg,#1a3472,#101a36)}.ip{font:900 1.35rem ui-monospace,monospace;letter-spacing:.06em;user-select:all;padding:7px 0}.statusline{min-height:22px;color:var(--cyan);margin-top:8px}
-    .list{max-height:210px;overflow:auto;display:grid;gap:6px}.item{display:flex;align-items:center;gap:9px;padding:9px;border:1px solid var(--line);border-radius:9px;background:#10182e;cursor:pointer}.item:hover,.item.active{background:#243761;border-color:#587de0}.item span:nth-child(2){flex:1}.remove{flex:0 0 auto;padding:3px 7px;background:#38182a;border-color:#71304a;color:#ff91a7}.dot{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 9px currentColor}.online{color:var(--green);background:var(--green)}.away{color:var(--yellow);background:var(--yellow)}.offline{color:var(--red);background:var(--red)}
-    .chat{display:grid;grid-template-rows:auto minmax(330px,1fr) auto;min-height:570px}.chathead{display:flex;justify-content:space-between;align-items:start}.messages{overflow:auto;padding:12px 2px;display:flex;flex-direction:column;gap:9px}.empty{margin:auto;color:var(--muted)}.msg{max-width:78%;padding:10px 12px;border-radius:12px;background:#253456}.msg.mine{align-self:flex-end;background:#315ed8}.msg small{display:block;margin-bottom:3px}
-    .tools{display:grid;grid-template-columns:1fr 1fr;gap:14px}.monitor{font:13px ui-monospace,monospace;background:#060a14;border:1px solid #26375c;border-radius:9px;padding:10px;max-height:210px;overflow:auto;white-space:pre-wrap}.call{display:grid;grid-template-columns:65px 46px 1fr 55px;gap:7px;padding:5px 0;border-bottom:1px solid #1d2946}.ok{color:var(--green)}
-    @media(max-width:850px){main{grid-template-columns:1fr}.chat{min-height:500px}.tools{grid-template-columns:1fr}}
+    :root{color-scheme:dark;--bg:#060914;--panel:#111a31;--line:#304773;--text:#f7f9ff;--muted:#91a2cc;--blue:#4775ff;--cyan:#35d8ff;--green:#24ed84;--yellow:#ffd139;--red:#ff496b}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 16% 0,#203e82 0,var(--bg) 44%);color:var(--text);font:15px Inter,ui-sans-serif,system-ui,sans-serif}header{height:68px;padding:0 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #385696;background:#080d1eee;position:sticky;top:0;z-index:3}header strong{letter-spacing:.16em;font-size:18px}.badge{padding:7px 11px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+    .warning{max-width:1240px;margin:16px auto 0;padding:11px 15px;border:1px solid #a57224;border-radius:10px;background:#3a270f;color:#ffe09a}.layout{max-width:1240px;margin:16px auto 28px;padding:0 18px;display:grid;grid-template-columns:360px minmax(0,1fr);gap:15px}.stack{display:grid;gap:14px;align-content:start}section{background:linear-gradient(145deg,#151f3aee,#0e162bee);border:1px solid var(--line);border-radius:15px;padding:16px;box-shadow:0 18px 50px #0006}h1,h2,h3,p{margin-top:0}h2{font-size:20px}h3{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:#ccd7f5}.hint,small{color:var(--muted);line-height:1.45}
+    input,select,button{min-width:0;border:1px solid var(--line);border-radius:9px;background:#080e20;color:var(--text);padding:10px;font:inherit}input{width:100%}button{background:linear-gradient(#5781ff,#3561e8);font-weight:850;cursor:pointer}button.secondary{background:#1b294b}button.danger{flex:0 0 auto;align-self:center;padding:6px 9px;border-color:#a82e49;background:#54172a;color:#ffdbe3}button:hover{filter:brightness(1.12)}button:active{transform:translateY(1px)}.row{display:flex;gap:7px}.row>*{flex:1}.official{border-color:#4d7cff;background:linear-gradient(135deg,#1b3678,#111b38)}.host{font:900 1.35rem ui-monospace,monospace;letter-spacing:.06em;user-select:all}.status{min-height:22px;margin-top:8px;color:var(--cyan)}
+    .list{max-height:260px;overflow:auto;display:grid;gap:6px}.item{display:flex;gap:9px;align-items:flex-start;padding:9px;border:1px solid var(--line);border-radius:9px;background:#0e172d;cursor:pointer}.item:hover,.item.active{background:#233762;border-color:#5b82e5}.itemtext{min-width:0;flex:1}.itemtext b,.itemtext small{display:block;overflow:hidden;text-overflow:ellipsis}.dot{width:10px;height:10px;margin-top:5px;border-radius:50%;flex:none;box-shadow:0 0 9px currentColor}.online{color:var(--green);background:var(--green)}.away{color:var(--yellow);background:var(--yellow)}.offline{color:var(--red);background:var(--red)}
+    .chat{display:grid;grid-template-rows:auto minmax(360px,1fr) auto;min-height:610px}.messages{overflow:auto;padding:12px 2px;display:flex;flex-direction:column;gap:9px}.empty{margin:auto;color:var(--muted)}.msg{max-width:78%;padding:10px 12px;border-radius:12px;background:#253558}.msg.mine{align-self:flex-end;background:#315fd8}.msg small{display:block}.tools{display:grid;grid-template-columns:1fr 1fr;gap:14px}.monitor{font:13px ui-monospace,monospace;background:#050914;border:1px solid #26385e;border-radius:9px;padding:10px;max-height:220px;overflow:auto;white-space:pre-wrap}.call{padding:5px 0;border-bottom:1px solid #1d2946}.ok{color:var(--green)}
+    .lock,.modal{position:fixed;inset:0;z-index:8;background:#050814ee;display:grid;place-items:center;padding:18px}.lockbox,.modalbox{width:min(470px,100%);border:1px solid #4d74cc;border-radius:16px;padding:24px;background:#111a31;box-shadow:0 30px 90px #000}.modalbox{width:min(420px,100%)}.modalbox label{display:block;margin:12px 0 5px;color:var(--muted);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.modalbox .groupname{color:var(--cyan);font:900 1.1rem ui-monospace,monospace}.hidden{display:none}
+    @media(max-width:860px){.layout{grid-template-columns:1fr}.chat{min-height:520px}.tools{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-<header><strong>DESK COMMANDER // COMMS</strong><span id="serverBadge" class="badge">SERVER CHECKING</span></header>
-<main>
+<div id="lock" class="lock"><div class="lockbox"><h1>RODDY Master Console</h1><p class="hint">Enter the manager token stored on the Desk Commander deployment laptop. This is separate from retro user accounts.</p><div class="row"><input id="token" type="password" autocomplete="off" placeholder="manager token"><button onclick="unlock()">UNLOCK</button></div><div id="lockStatus" class="status"></div></div></div>
+<header><strong>DESK COMMANDER // MASTER</strong><span id="serverBadge" class="badge">SERVER CHECKING</span></header>
+<div class="warning"><b>PUBLIC ALPHA:</b> Current X16 compatibility traffic is plaintext. Use test conversations only while encrypted RetroWire is under construction.</div>
+<main class="layout">
   <div class="stack">
-    <section class="connection">
-      <h2>X16 connection</h2><p class="hint">Enter this address with the X16 <b>HOST</b> button. Port 8088 is automatic.</p>
-      <div class="row"><div id="x16ip" class="ip">Detecting...</div><button id="copyip" onclick="copyIp()">COPY IP</button></div>
-      <div id="x16Seen" class="statusline">Waiting for an X16 request…</div>
-    </section>
-    <section>
-      <h3>Your profile</h3>
-      <div class="row"><input id="user" maxlength="16" placeholder="your username"><button onclick="useAccount()">SAVE</button></div>
-      <div class="row"><select id="presence" onchange="setPresence()"><option value="online">Online</option><option value="away">Away</option><option value="offline">Offline</option></select><button class="secondary" onclick="refreshAll()">REFRESH</button></div>
-      <div id="status" class="statusline">Choose or create a username.</div>
-    </section>
-    <section>
-      <h3>Friends</h3><p class="hint">Any name can be saved. Friends who are not connected simply appear offline.</p>
-      <div class="row"><input id="friend" maxlength="16" placeholder="friend username"><button onclick="addFriend()">ADD</button></div>
-      <div id="friends" class="list"></div>
-    </section>
-    <section>
-      <h3>Groups</h3><p class="hint">Groups are shared chats—there is no separate server list.</p>
-      <div class="row"><input id="group" maxlength="16" placeholder="new group"><button onclick="createGroup()">CREATE</button></div>
-      <div class="row"><input id="member" maxlength="16" placeholder="friend to add"><button onclick="addMember()">ADD MEMBER</button></div>
-      <div id="groups" class="list"></div>
-    </section>
+    <section class="official"><h2>Official host</h2><p class="hint">X16 users enter this with the app’s editable <b>HOST</b> button. They may still choose any other compatible host.</p><div class="row"><div id="officialHost" class="host">143.244.168.180</div><button onclick="copyHost()">COPY</button></div><div id="x16Seen" class="status">Waiting for an X16 request…</div></section>
+    <section><h3>Connect an X16</h3><p class="hint"><b>1.</b> Connect the TexElec card to Wi-Fi.<br><b>2.</b> Open Comms and set HOST to the official IP above.<br><b>3.</b> Set USER once, then press SYNC.<br><b>4.</b> Use +FR to add RODDY, or send to that user from this console first.<br><b>5.</b> Select RODDY and send a message.<br><br>The host and username stay saved on the SD card. The browser updates automatically. On the current X16 alpha, select the conversation again to fetch its newest replies.</p></section>
+    <section><h3>Official users</h3><p class="hint">Select a user to chat. ADD creates an account; REMOVE permanently deletes its contacts, memberships, and direct messages.</p><div class="row"><input id="newUser" maxlength="16" placeholder="new username"><button onclick="createUser()">ADD</button></div><div id="users" class="list"></div></section>
+    <section><h3>Official groups</h3><div class="row"><input id="newGroup" maxlength="16" placeholder="new group"><button onclick="createGroup()">CREATE</button></div><div class="row"><input id="member" maxlength="16" placeholder="member username"><button onclick="addMember()">ADD MEMBER</button></div><div class="row"><button class="secondary" onclick="openGroupTest()">OPEN GROUP TEST WINDOW</button></div><div id="groups" class="list"></div></section>
   </div>
   <div class="stack">
-    <section class="chat">
-      <div class="chathead"><div><h2 id="title">Choose a friend or group</h2><span id="chatMeta" class="hint">Messages persist on this server.</span></div></div>
-      <div id="messages" class="messages"><div class="empty">No conversation selected</div></div>
-      <div class="row"><input id="message" maxlength="32" placeholder="Type a message (32 characters max)"><button onclick="sendMessage()">SEND</button></div>
-    </section>
-    <div class="tools">
-      <section><h3>X16 protocol probe</h3><p class="hint">Preview exactly what the next X16 SYNC receives and verify it stays under its UART buffer.</p><button onclick="previewSync()">PREVIEW SYNC</button><div id="preview" class="monitor">Choose a profile first.</div></section>
-      <section><h3>Live API calls</h3><p class="hint">X16 requests appear here, proving that the hardware reached the server.</p><div id="activity" class="monitor">No calls yet.</div></section>
-    </div>
+    <section class="chat"><div><h2 id="title">Choose any user or group</h2><span id="chatMeta" class="hint">RODDY is the global manager.</span></div><div id="messages" class="messages"><div class="empty">No conversation selected</div></div><div class="row"><input id="message" maxlength="32" placeholder="Message as RODDY (32 characters max)"><button onclick="sendMessage()">SEND</button></div></section>
+    <div class="tools"><section><h3>X16 protocol preview</h3><button onclick="previewSync()">PREVIEW RODDY SYNC</button><div id="preview" class="monitor">Not loaded.</div></section><section><h3>Live communications</h3><div id="activity" class="monitor">No calls yet.</div></section></div>
   </div>
 </main>
+<div id="groupTest" class="modal hidden" onclick="if(event.target===this)closeGroupTest()">
+  <div class="modalbox">
+    <h2>Group chat tester</h2>
+    <p class="hint">Send messages as several test users and watch them arrive on the X16.</p>
+    <div id="testGroupName" class="groupname">NO GROUP SELECTED</div>
+    <label for="testUser">Test username</label>
+    <input id="testUser" maxlength="16" placeholder="example: ALICE">
+    <label for="testMessage">Message</label>
+    <input id="testMessage" maxlength="32" placeholder="32 characters max">
+    <div id="testStatus" class="status"></div>
+    <div class="row"><button onclick="sendGroupTest()">SEND AS USER</button><button class="secondary" onclick="closeGroupTest()">CLOSE</button></div>
+  </div>
+</div>
 <script>
-const $=id=>document.getElementById(id);let currentUser=localStorage.deskUser||'',kind='',target='';$('user').value=currentUser;
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function api(path,options){const r=await fetch(path,options),j=await r.json();if(!r.ok||j.ok===false)throw Error(j.error||`HTTP ${r.status}`);return j}
-async function post(path,body){return api('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
-function say(text,bad=false){$('status').textContent=text;$('status').style.color=bad?'var(--red)':'var(--cyan)'}
-async function connectionInfo(){try{const info=await api('/api/info');$('x16ip').textContent=info.x16Ip;$('serverBadge').textContent='SERVER ONLINE';$('serverBadge').className='badge ok';$('x16Seen').textContent=info.lastX16?(info.x16Active?'● X16 ACTIVE — ':'○ LAST X16 — ')+info.lastX16.time+' '+info.lastX16.action:'Waiting for an X16 request…'}catch(e){$('serverBadge').textContent='SERVER ERROR'}}
-async function copyIp(){const value=$('x16ip').textContent;if(!/^\d+\.\d+\.\d+\.\d+$/.test(value))return;await navigator.clipboard.writeText(value).catch(()=>{});$('copyip').textContent='COPIED';setTimeout(()=>$('copyip').textContent='COPY IP',1200)}
-async function useAccount(){currentUser=$('user').value.trim();if(!currentUser)return say('Enter a username.',true);try{await post('account',{user:currentUser});localStorage.deskUser=currentUser;say('Profile saved: '+currentUser);await refreshAll()}catch(e){say(e.message,true)}}
-async function setPresence(){if(!currentUser)return;try{await post('presence',{user:currentUser,state:$('presence').value});say('Status set to '+$('presence').value)}catch(e){say(e.message,true)}}
-async function addFriend(){if(!currentUser)return say('Save your profile first.',true);const name=$('friend').value.trim();if(!name)return;try{await post('friend',{user:currentUser,target:name});$('friend').value='';say('Friend saved—even if currently offline.');await refreshState()}catch(e){say(e.message,true)}}
-async function createGroup(){if(!currentUser)return say('Save your profile first.',true);const name=$('group').value.trim();if(!name)return;try{await post('group',{user:currentUser,target:name});$('group').value='';say('Group created: '+name);await refreshState()}catch(e){say(e.message,true)}}
-async function addMember(){if(!currentUser)return say('Save your profile first.',true);const room=kind==='G'?target:$('group').value.trim(),name=$('member').value.trim();if(!room)return say('Select a group first.',true);if(!name)return;try{await post('group-member',{user:currentUser,target:room,member:name});$('member').value='';say(name+' added to '+room)}catch(e){say(e.message,true)}}
-function makeRows(id,names,k,presences={}){const box=$(id);box.innerHTML='';if(!names.length){box.innerHTML='<span class="hint">None saved yet.</span>';return}for(const name of names){const row=document.createElement('div');row.className='item'+(kind===k&&target===name?' active':'');const state=k==='F'?(presences[name]||'offline'):'online';row.innerHTML=`<span class="dot ${state}"></span><span>${esc(name)}</span><button class="remove" title="${k==='F'?'Remove friend':'Leave group'}">×</button>`;row.onclick=()=>openChat(k,name,state);row.querySelector('button').onclick=e=>{e.stopPropagation();removeItem(k,name)};box.appendChild(row)}}
-async function removeItem(k,name){if(!confirm((k==='F'?'Remove friend ':'Leave group ')+name+'?'))return;try{await post(k==='F'?'friend-delete':'group-leave',{user:currentUser,target:name});if(target===name){kind='';target='';$('title').textContent='Choose a friend or group';$('messages').innerHTML='<div class="empty">No conversation selected</div>'}say(k==='F'?'Friend removed.':'Group left.');await refreshState()}catch(e){say(e.message,true)}}
-async function refreshState(){if(!currentUser)return;try{const s=await api('/api/state?user='+encodeURIComponent(currentUser));makeRows('friends',s.friends,'F',s.presence);makeRows('groups',s.groups,'G');if(kind&&target)await loadMessages()}catch(e){say(e.message,true)}}
-async function openChat(k,name,state){kind=k;target=name;$('title').textContent=(k==='F'?'DIRECT // ':'GROUP // ')+name;$('chatMeta').textContent=k==='F'?(state.toUpperCase()+' — offline messages are saved'):'GROUP CHAT';await refreshState()}
-async function loadMessages(){try{const ms=await api(`/api/messages?user=${encodeURIComponent(currentUser)}&kind=${kind}&target=${encodeURIComponent(target)}`);$('messages').innerHTML=ms.length?ms.map(m=>`<div class="msg ${m.from===currentUser?'mine':''}"><small>${esc(m.from)}</small>${esc(m.text)}</div>`).join(''):'<div class="empty">No messages yet. Say hello.</div>';$('messages').scrollTop=$('messages').scrollHeight}catch(e){say(e.message,true)}}
-async function sendMessage(){const text=$('message').value.trim();if(!target)return say('Choose a conversation first.',true);if(!text)return;try{await post('message',{user:currentUser,kind,target,text});$('message').value='';say('Message sent.');await loadMessages()}catch(e){say(e.message,true)}}
-async function previewSync(){if(!currentUser)return;try{const p=await api('/api/preview?user='+encodeURIComponent(currentUser));$('preview').textContent=p.lines.join('\n')+`\n\n${p.bytes} / 256 bytes used`}catch(e){$('preview').textContent=e.message}}
-async function loadActivity(){try{const rows=await api('/api/activity');$('activity').innerHTML=rows.length?rows.slice(0,14).map(a=>`<div class="call"><span>${esc(a.time)}</span><b>${esc(a.client)}</b><span>${esc(a.user)} / ${esc(a.action)}</span><span class="ok">${esc(a.result)}</span></div>`).join(''):'No calls yet.'}catch(e){$('activity').textContent=e.message}}
-async function heartbeat(){if(currentUser)await api('/api/heartbeat?user='+encodeURIComponent(currentUser)).catch(()=>{})}
-async function refreshAll(){await Promise.all([connectionInfo(),refreshState(),loadActivity()])}
-$('message').addEventListener('keydown',e=>{if(e.key==='Enter')sendMessage()});
-if(currentUser)useAccount();else refreshAll();setInterval(()=>{heartbeat();refreshAll()},3000);
-</script></body></html>
+const $=id=>document.getElementById(id);const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let adminToken=sessionStorage.deskAdmin||'',kind='',target='';$('token').value=adminToken;
+async function request(path,options={}){options.headers={...(options.headers||{}),Authorization:'Bearer '+adminToken};const response=await fetch(path,options);const data=await response.json();if(!response.ok||data.ok===false)throw Error(data.error||`HTTP ${response.status}`);return data}
+async function post(action,body){return request('/api/admin/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
+function lockMessage(text){$('lockStatus').textContent=text;$('lockStatus').style.color='var(--red)'}
+async function unlock(){adminToken=$('token').value.trim();try{await request('/api/admin/state');sessionStorage.deskAdmin=adminToken;$('lock').classList.add('hidden');await refreshAll()}catch(e){lockMessage('Access denied. Check the manager token.')}}
+async function copyHost(){const value=$('officialHost').textContent;try{if(!navigator.clipboard)throw Error();await navigator.clipboard.writeText(value)}catch(e){const box=document.createElement('textarea');box.value=value;document.body.appendChild(box);box.select();document.execCommand('copy');box.remove()}}
+function selectConversation(newKind,name){kind=newKind;target=name;$('title').textContent=(kind==='F'?'DIRECT // ':'GROUP // ')+name;$('chatMeta').textContent=kind==='F'?'RODDY may contact this user without a friend requirement.':'RODDY has manager access to this official group.';refreshAll()}
+function renderUsers(items){$('users').innerHTML=items.length?'':'';if(!items.length)$('users').innerHTML='<span class="hint">No users yet.</span>';for(const user of items){const row=document.createElement('div');row.className='item'+(kind==='F'&&target===user.name?' active':'');const friends=user.friends.length?'Friends: '+user.friends.join(', '):'No saved friends';row.innerHTML=`<span class="dot ${user.presence}"></span><span class="itemtext"><b>${esc(user.name)}</b><small>${esc(friends)}</small></span>${user.name==='RODDY'?'':`<button class="danger" title="Permanently remove ${esc(user.name)}">REMOVE</button>`}`;row.onclick=()=>selectConversation('F',user.name);const remove=row.querySelector('.danger');if(remove)remove.onclick=event=>{event.stopPropagation();deleteUser(user.name)};$('users').appendChild(row)}}
+function renderGroups(items){$('groups').innerHTML=items.length?'':'';if(!items.length)$('groups').innerHTML='<span class="hint">No groups yet.</span>';for(const group of items){const row=document.createElement('div');row.className='item'+(kind==='G'&&target===group.name?' active':'');row.innerHTML=`<span class="dot online"></span><span class="itemtext"><b>${esc(group.name)}</b><small>Members: ${esc(group.members.join(', ')||'none')}</small></span>`;row.onclick=()=>selectConversation('G',group.name);$('groups').appendChild(row)}}
+async function loadState(){const state=await request('/api/admin/state');renderUsers(state.users);renderGroups(state.groups)}
+async function createUser(){const name=$('newUser').value.trim();if(!name)return;await post('user',{target:name});$('newUser').value='';await refreshAll()}
+async function deleteUser(name){if(!confirm(`Permanently remove ${name}?\n\nThis deletes the account, direct messages, friend links, and group memberships.`))return;await post('user-delete',{target:name});if(kind==='F'&&target===name){kind='';target='';$('title').textContent='Choose any user or group';$('chatMeta').textContent='RODDY is the global manager.';$('messages').innerHTML='<div class="empty">No conversation selected</div>'}await refreshAll()}
+async function createGroup(){const name=$('newGroup').value.trim();if(!name)return;await post('group',{target:name});$('newGroup').value='';await refreshAll()}
+async function addMember(){if(kind!=='G')return alert('Select a group first.');const name=$('member').value.trim();if(!name)return;await post('group-member',{target,member:name});$('member').value='';await refreshAll()}
+function openGroupTest(){if(kind!=='G'||!target)return alert('Select a group first.');$('testGroupName').textContent='GROUP // '+target;$('testStatus').textContent='';$('groupTest').classList.remove('hidden');$('testUser').focus()}
+function closeGroupTest(){$('groupTest').classList.add('hidden')}
+async function sendGroupTest(){const user=$('testUser').value.trim(),text=$('testMessage').value.trim();if(!user||!text){$('testStatus').textContent='Enter both a username and message.';$('testStatus').style.color='var(--red)';return}try{await post('group-test-send',{target,user,text});$('testMessage').value='';$('testStatus').textContent=`Sent to ${target} as ${user}.`;$('testStatus').style.color='var(--green)';await refreshAll();$('testMessage').focus()}catch(error){$('testStatus').textContent=error.message;$('testStatus').style.color='var(--red)'}}
+async function loadMessages(){if(!target)return;const messages=await request(`/api/admin/messages?kind=${kind}&target=${encodeURIComponent(target)}`);$('messages').innerHTML=messages.length?messages.map(item=>`<div class="msg ${item.from==='RODDY'?'mine':''}"><small>${esc(item.from)}</small>${esc(item.text)}</div>`).join(''):'<div class="empty">No messages yet.</div>';$('messages').scrollTop=$('messages').scrollHeight}
+async function sendMessage(){const text=$('message').value.trim();if(!target)return alert('Choose a user or group first.');if(!text)return;await post('send',{kind,target,text});$('message').value='';await loadMessages()}
+async function connectionInfo(){const info=await fetch('/api/info').then(r=>r.json());$('officialHost').textContent=info.x16Ip;$('serverBadge').textContent='OFFICIAL SERVER ONLINE';$('serverBadge').className='badge ok';$('x16Seen').textContent=info.lastX16?(info.x16Active?'● X16 ACTIVE — ':'○ LAST X16 — ')+info.lastX16.time+' '+info.lastX16.user+' '+info.lastX16.action:'Waiting for an X16 request…'}
+async function previewSync(){const data=await fetch('/api/preview?user=RODDY').then(r=>r.json());$('preview').textContent=data.lines.join('\n')+`\n\n${data.bytes} / 256 bytes used`}
+async function loadActivity(){const rows=await fetch('/api/activity').then(r=>r.json());$('activity').innerHTML=rows.length?rows.slice(0,16).map(a=>`<div class="call"><b>${esc(a.time)} ${esc(a.client)}</b> — ${esc(a.user)} / ${esc(a.action)}</div>`).join(''):'No calls yet.'}
+async function refreshAll(){try{await Promise.all([loadState(),connectionInfo(),loadActivity(),loadMessages(),fetch('/api/heartbeat?user=RODDY')])}catch(e){if(String(e).includes('manager token')){$('lock').classList.remove('hidden');lockMessage('Manager session expired.')}}}
+$('message').addEventListener('keydown',event=>{if(event.key==='Enter')sendMessage()});$('testMessage').addEventListener('keydown',event=>{if(event.key==='Enter')sendGroupTest()});document.addEventListener('keydown',event=>{if(event.key==='Escape')closeGroupTest()});if(adminToken)unlock();setInterval(()=>{if($('lock').classList.contains('hidden'))refreshAll()},3000);
+</script>
+</body></html>

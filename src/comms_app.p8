@@ -6,6 +6,11 @@
 
 ; Full-screen chat client. UI is bank 12; HTTP transport is bank 15.
 comms_app {
+    ; Conversation kinds are sent directly in an ASCII HTTP query. Do not use
+    ; PETSCII character literals for these wire values.
+    const ubyte DIRECT_KIND = $46
+    const ubyte GROUP_KIND = $47
+
     extsub @bank 15 $a000 = initialize_chat_network() clobbers(A, X, Y)
     extsub @bank 15 $a003 = chat_sync() clobbers(X, Y) -> bool @A
     extsub @bank 15 $a006 = chat_load_messages() clobbers(X, Y) -> bool @A
@@ -18,11 +23,14 @@ comms_app {
     extsub @bank 16 $a003 = chat_draw() clobbers(A, X, Y)
     extsub @bank 16 $a006 = chat_draw_sidebar() clobbers(A, X, Y)
     extsub @bank 16 $a009 = chat_draw_messages() clobbers(A, X, Y)
+    extsub @bank 16 $a00c = chat_draw_composer() clobbers(A, X, Y)
 
     const ubyte DIRECT_ROWS = 4
     const ubyte GROUP_ROWS = 3
     ubyte[33] edit_text
     ubyte[33] name_text
+    ubyte[33] draft_text
+    uword receive_timer
 
     sub copy_status(str value, ubyte color) {
         comms_data.set_status(value, color)
@@ -129,11 +137,19 @@ comms_app {
     }
 
     sub sync_lists() {
+        receive_timer = 0
         copy_status(iso:"CONTACTING CHAT SERVER...", theme.GOLD)
         chat_draw_messages()
-        if chat_sync()
+        if chat_sync() {
             copy_status(iso:"SERVER ONLINE", theme.GREEN)
-        else
+            ; SYNC also refreshes the open conversation. Previously it only
+            ; updated the sidebar, which made a newly arrived reply look lost.
+            comms_data.selected_name(name_text)
+            if name_text[0] != 0 {
+                comms_data.set_message_offset(0)
+                void chat_load_messages()
+            }
+        } else
             copy_status(iso:"SERVER UNREACHABLE", theme.RED)
         chat_draw_sidebar()
         chat_draw_messages()
@@ -199,7 +215,7 @@ comms_app {
     }
 
     sub add_group_member() {
-        if comms_data.selected_kind() != 'G' {
+        if comms_data.selected_kind() != GROUP_KIND {
             copy_status(iso:"SELECT A GROUP FIRST", theme.RED)
             chat_draw_messages()
             return
@@ -215,36 +231,125 @@ comms_app {
     }
 
     sub select_direct(ubyte row) {
+        receive_timer = 0
         ubyte item = comms_data.direct_scroll() + row
         if item >= comms_data.friend_count() return
         comms_data.copy_friend(item, name_text)
-        comms_data.select_chat('F', name_text)
+        comms_data.select_chat(DIRECT_KIND, name_text)
+        comms_data.set_message_offset(0)
+        comms_data.set_composer_focused(true)
+        draft_text[0] = 0
+        comms_data.set_message(draft_text)
         if not chat_load_messages()
             copy_status(iso:"MESSAGE LOAD FAILED", theme.RED)
         chat_draw_messages()
     }
 
     sub select_group(ubyte row) {
+        receive_timer = 0
         ubyte item = comms_data.group_scroll() + row
         if item >= comms_data.group_count() return
         comms_data.copy_group(item, name_text)
-        comms_data.select_chat('G', name_text)
+        comms_data.select_chat(GROUP_KIND, name_text)
+        comms_data.set_message_offset(0)
+        comms_data.set_composer_focused(true)
+        draft_text[0] = 0
+        comms_data.set_message(draft_text)
         if not chat_load_messages()
             copy_status(iso:"MESSAGE LOAD FAILED", theme.RED)
         chat_draw_messages()
     }
 
-    sub compose_message() {
+    sub focus_composer() {
+        comms_data.selected_name(name_text)
+        if name_text[0] == 0 {
+            copy_status(iso:"SELECT A CHAT FIRST", theme.RED)
+            chat_draw_messages()
+            return
+        }
+        comms_data.set_composer_focused(true)
+        chat_draw_composer()
+    }
+
+    sub send_draft() {
+        comms_data.selected_name(name_text)
+        if name_text[0] == 0 or draft_text[0] == 0
+            return
+
+        receive_timer = 0
+        comms_data.set_message_offset(0)
+        comms_data.set_message(draft_text)
+        copy_status(iso:"SENDING...", theme.GOLD)
+        chat_draw_messages()
+        if chat_send_message() {
+            draft_text[0] = 0
+            comms_data.set_message(draft_text)
+            copy_status(iso:"MESSAGE SENT", theme.GREEN)
+        } else
+            copy_status(iso:"SEND FAILED", theme.RED)
+        chat_draw_messages()
+    }
+
+    sub handle_composer_key() {
+        if not comms_data.composer_focused()
+            return
+
+        ubyte length = strings.length(draft_text)
+        ubyte typed = field_key(input.key)
+        if input.key == $14 {
+            if length > 0 {
+                draft_text[length - 1] = 0
+                comms_data.set_message(draft_text)
+                chat_draw_composer()
+            }
+        } else if input.key == $0d
+            send_draft()
+        else if typed >= 32 and typed <= 126 and length < 32 {
+            draft_text[length] = typed
+            draft_text[length + 1] = 0
+            comms_data.set_message(draft_text)
+            chat_draw_composer()
+        }
+    }
+
+    sub scroll_messages(byte direction) {
+        receive_timer = 0
         comms_data.selected_name(name_text)
         if name_text[0] == 0 return
-        if edit_dialog(iso:"NEW MESSAGE", 32, false) {
-            comms_data.set_message(edit_text)
-            if chat_send_message()
-                copy_status(iso:"MESSAGE SENT", theme.GREEN)
-            else
-                copy_status(iso:"SEND FAILED", theme.RED)
+
+        ubyte old_offset = comms_data.message_offset()
+        ubyte new_offset = old_offset
+        if direction < 0 and old_offset < 96 and
+           comms_data.message_count() == comms_data.MAX_MESSAGES
+            new_offset++
+        else if direction > 0 and old_offset > 0
+            new_offset--
+        if new_offset == old_offset return
+
+        comms_data.set_message_offset(new_offset)
+        if not chat_load_messages() or comms_data.message_count() == 0 {
+            comms_data.set_message_offset(old_offset)
+            void chat_load_messages()
         }
-        chat_draw()
+        chat_draw_messages()
+    }
+
+    sub poll_open_conversation() {
+        ; AT&G is request/response rather than a push connection. Poll the open
+        ; newest-message view about every five seconds and redraw only when its
+        ; contents changed. Older-history browsing stays still until the user
+        ; returns to NEW.
+        receive_timer++
+        if receive_timer < 300 or comms_data.message_offset() != 0
+            return
+        receive_timer = 0
+        comms_data.selected_name(name_text)
+        if name_text[0] == 0
+            return
+
+        uword before = comms_data.message_signature()
+        if chat_load_messages() and comms_data.message_signature() != before
+            chat_draw_messages()
     }
 
     sub scroll_direct(byte direction) {
@@ -277,6 +382,11 @@ comms_app {
         initialize_comms_visual()
         comms_data.set_direct_scroll(0)
         comms_data.set_group_scroll(0)
+        comms_data.set_message_offset(0)
+        comms_data.set_composer_focused(false)
+        receive_timer = 0
+        draft_text[0] = 0
+        comms_data.set_message(draft_text)
         copy_status(iso:"READY", theme.BLUE)
         chat_draw()
         if not comms_data.configured() {
@@ -302,14 +412,21 @@ comms_app {
                     select_direct(((input.mouse_y - 77) / 18) as ubyte)
                 else if input.inside(7, 168, 96, 54)
                     select_group(((input.mouse_y - 168) / 18) as ubyte)
-                else if input.inside(111, 211, 201, 21) compose_message()
+                else if input.inside(240, 59, 15, 25) scroll_messages(-1)
+                else if input.inside(255, 59, 15, 25) scroll_messages(1)
+                else if input.inside(111, 211, 145, 21) focus_composer()
+                else if input.inside(261, 211, 51, 21) send_draft()
                 else if input.inside(299, 21, 15, 13) close_window = true
             }
+            handle_composer_key()
+            poll_open_conversation()
             if input.wheel > 0 {
-                if input.mouse_y < 154 scroll_direct(-1)
+                if input.mouse_x >= 106 scroll_messages(-1)
+                else if input.mouse_y < 154 scroll_direct(-1)
                 else scroll_groups(-1)
             } else if input.wheel < 0 {
-                if input.mouse_y < 154 scroll_direct(1)
+                if input.mouse_x >= 106 scroll_messages(1)
+                else if input.mouse_y < 154 scroll_direct(1)
                 else scroll_groups(1)
             }
         } until close_window or input.key == $1b

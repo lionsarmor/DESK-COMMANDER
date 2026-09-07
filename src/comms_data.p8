@@ -100,8 +100,12 @@ comms_data {
     }
     sub direct_scroll() -> ubyte { return read(CACHE + 3) }
     sub group_scroll() -> ubyte { return read(CACHE + 4) }
+    sub message_offset() -> ubyte { return read(CACHE + 5) }
+    sub composer_focused() -> bool { return read(CACHE + 6) != 0 }
     sub set_direct_scroll(ubyte value) { write(CACHE + 3, value) }
     sub set_group_scroll(ubyte value) { write(CACHE + 4, value) }
+    sub set_message_offset(ubyte value) { write(CACHE + 5, value) }
+    sub set_composer_focused(bool value) { write(CACHE + 6, value as ubyte) }
     sub set_status(str value, ubyte color) {
         copy_to(STATUS, value, 28)
         write(STATUS + 29, color)
@@ -154,4 +158,17 @@ comms_data {
     }
     sub copy_sender(ubyte index, str value) { copy_from(MESSAGES + (index as uword) * 50, value, 16) }
     sub copy_message(ubyte index, str value) { copy_from(MESSAGES + (index as uword) * 50 + 17, value, 32) }
+
+    sub message_signature() -> uword {
+        ; Cheap change detector for background receive polling. It lets Comms
+        ; skip a redraw when the same four visible messages come back, avoiding
+        ; a periodic flash on real hardware.
+        uword signature = message_count()
+        ubyte index = 0
+        while index < 200 {
+            signature += read(MESSAGES + index)
+            index++
+        }
+        return signature
+    }
 }

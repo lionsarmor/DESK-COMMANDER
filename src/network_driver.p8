@@ -226,10 +226,11 @@ network_driver {
                 capture_network_character(character)
                 track_result(character)
                 if response_length < RESPONSE_SIZE - 1 {
-                    ; Keep diagnostics printable. Protocol parsing already saw
-                    ; the original byte above, so CR/LF can safely become
-                    ; spaces in the user-facing transcript.
-                    if character < 32
+                    ; Preserve CR/LF: higher-level clients parse the completed
+                    ; response after this routine returns and need real record
+                    ; boundaries between chat messages. Replace only other
+                    ; non-printing controls in the diagnostic transcript.
+                    if character < 32 and character != $0d and character != $0a
                         character = ' '
                     response[response_length] = character
                     response_length++

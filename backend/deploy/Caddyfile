@@ -1,0 +1,5 @@
+# HTTPS is for the authenticated browser master console.
+# The X16 compatibility endpoint remains on direct port 8088 until RetroWire.
+console.143-244-168-180.sslip.io {
+    reverse_proxy 127.0.0.1:8088
+}

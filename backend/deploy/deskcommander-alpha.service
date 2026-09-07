@@ -1,0 +1,28 @@
+[Unit]
+Description=Desk Commander public X16 compatibility chat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deskcmd
+Group=deskcmd
+UMask=0077
+WorkingDirectory=/opt/deskcommander/alpha-server
+Environment=DESK_CHAT_PORT=8088
+Environment=DESK_PUBLIC_HOST=143.244.168.180
+Environment=DESK_CHAT_DATA=/var/lib/deskcommander/alpha-chat.json
+Environment=DESK_ADMIN_NAME=RODDY
+Environment=DESK_ADMIN_TOKEN_FILE=/etc/deskcommander/admin-token
+ExecStart=/usr/bin/python3 /opt/deskcommander/alpha-server/chat_server.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/deskcommander
+ReadOnlyPaths=/etc/deskcommander/admin-token
+
+[Install]
+WantedBy=multi-user.target

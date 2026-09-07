@@ -32,7 +32,8 @@ inside a crisp mouse-and-keyboard desktop.
 - 🎨 X16, Amber, and Night theme packages
 - 🔊 Subtle optional interface sounds
 - 💬 Full-screen Comms with saved user/host settings, persistent offline
-  friends, group chats, online/away/offline colors, and two-way LAN messages
+  friends, group chats, inline 32-character composition, scrollable history,
+  online/away/offline colors, and two-way internet messages
 - 📈 Saved twelve-symbol Market Watch, defaulting to GOOG, MSFT, and TSLA
 - 📡 Physical TexElec UART detection at `$9FE0`; ZiModem communication is the
   current top-priority hardware issue
@@ -262,8 +263,11 @@ values are written immediately to the SD card's `DCSTATE.BIN`.
 Use **+FR** to save a friend. The friend does not need to be connected—or even
 have opened the app yet—and appears with a red offline dot until reachable.
 Green means online and yellow means away. Select a friend, click the message
-field, type up to 32 characters, and press **SEND**. Offline messages remain on
-the server for the next time that friend connects.
+field, type directly in the bottom bar, and press Return or **SEND**. The field
+accepts up to 32 characters and scrolls horizontally as needed. Wheel over the
+message pane—or use its up/down controls—to move one entry at a time through
+the server's saved 100-message history. Offline messages remain for the next time
+that friend connects.
 
 Use **+GRP** to create a shared group chat. Select that group and use **MEM** to
 add one of your saved friends. Groups replace the older duplicate “server”
@@ -307,6 +311,49 @@ The initial SQLite schema reserves clean modules for identity/devices, friends,
 groups, chat, internal Desk Mail, games, and auditing. See
 `docs/RETROWIRE.md` for the bounded encrypted transport plan and
 `backend/deploy/README.md` for the server layout and health commands.
+
+### Official public-alpha chat
+
+The hosted RODDY master console is currently available at:
+
+```text
+https://console.143-244-168-180.sslip.io
+```
+
+The manager token is stored outside the repository at:
+
+```text
+/home/legion/.config/deskcommander/admin-token
+```
+
+Display it locally with `sed -n '1p'` and paste it into the console unlock
+screen. The console can add users and permanently remove them with confirmation;
+it also lists every official username, each user's friend names, all
+groups/members, current presence, and live X16 calls. RODDY can initiate a
+direct conversation with any account; that automatically makes RODDY visible
+to the recipient so the retro client can reply. Select a group and open the
+compact **GROUP TEST WINDOW** to send messages as multiple test usernames. A
+test username is created and added to that group automatically, making it easy
+to exercise multi-user X16 chat from one browser.
+
+On the X16, keep **HOST** fully user-editable. Enter `143.244.168.180` to use
+the official service, or another compatible IPv4 address to use a community or
+private host. The official compatibility endpoint is port 8088 automatically.
+
+For the first official-chat setup, connect the TexElec card to Wi-Fi, open
+**Comms**, set **HOST** to `143.244.168.180`, set **USER** to the desired saved
+username, and press **SYNC**. Then select **RODDY**, enter a message, and press
+**SEND**. If RODDY is not listed yet, add `RODDY` with **+FR**, or send the user
+a first message from the master console and press **SYNC** on the X16. HOST and
+USER persist in `DCSTATE.BIN`, so later sessions normally only require opening
+Comms. The browser console refreshes automatically. The X16 fetches the newest
+messages when that friend/group is selected, immediately after **SEND**, when
+**SYNC** is pressed, and automatically about every five seconds while the
+newest view is open.
+
+Port 8088 is intentionally plaintext for the present ZiModem `AT&G` client.
+Use test messages only. The browser manager console uses HTTPS and a separate
+manager token. Encrypted RetroWire remains the production replacement.
 
 Market Watch writes every successful quote to `DCSTATE.BIN`. Gold, silver, and
 Bitcoin compare a new quote with the last saved numeric quote—even across a

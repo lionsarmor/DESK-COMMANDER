@@ -4,6 +4,16 @@
 ; ZiModem HTTP client for the small LAN chat protocol. The browser uses JSON;
 ; the X16 receives short pipe-delimited lines that fit its 256-byte UART cache.
 chat_network {
+    ; ZiModem and the HTTP server speak 7-bit ASCII. Prog8's normal character
+    ; literals follow the X16/PETSCII character set, where (for example) 'F'
+    ; compiles as $c6 instead of ASCII $46. Keep every protocol marker numeric
+    ; so sidebar sync and message parsing behave the same on real hardware.
+    const ubyte ASCII_F = $46
+    const ubyte ASCII_G = $47
+    const ubyte ASCII_M = $4d
+    const ubyte ASCII_X = $58
+    const ubyte ASCII_PIPE = $7c
+
     ubyte[32] username
     ubyte[32] host
     ubyte[33] action
@@ -23,21 +33,29 @@ chat_network {
         return output
     }
 
+    sub hex_digit(ubyte value) -> ubyte {
+        if value < 10
+            return $30 + value
+        return $41 + value - 10
+    }
+
     sub append_encoded(str source, ubyte output) -> ubyte {
         ubyte index = 0
         while source[index] != 0 and output < 236 {
             ubyte value = source[index]
-            if value == ' ' {
-                command[output] = '%'
-                command[output + 1] = '2'
-                command[output + 2] = '0'
-                output += 3
-            } else if (value >= 'a' and value <= 'z') or
-                      (value >= 'A' and value <= 'Z') or
-                      (value >= '0' and value <= '9') or
-                      value == '.' or value == '-' or value == '_' {
+            if (value >= $41 and value <= $5a) or
+                      (value >= $61 and value <= $7a) or
+                      (value >= $30 and value <= $39) or
+                      value == $2e or value == $2d or value == $5f {
                 command[output] = value
                 output++
+            } else {
+                ; Encode spaces and punctuation instead of dropping them. This
+                ; makes the inline composer match what the server receives.
+                command[output] = $25
+                command[output + 1] = hex_digit(value >> 4)
+                command[output + 2] = hex_digit(value & $0f)
+                output += 3
             }
             index++
         }
@@ -100,7 +118,7 @@ chat_network {
         ubyte output = 0
         while source < network_driver.response_length and output < maximum {
             ubyte value = network_driver.response[source]
-            if value == '|' or value == $0d or value == $0a or value == 0
+            if value == ASCII_PIPE or value == $0d or value == $0a or value == 0
                 break
             destination[output] = value
             output++
@@ -117,12 +135,12 @@ chat_network {
         comms_data.clear_lists()
         while position + 2 < network_driver.response_length {
             ubyte kind = network_driver.response[position]
-            if (kind == 'F' or kind == 'G') and
-               network_driver.response[position + 1] == '|' {
+            if (kind == ASCII_F or kind == ASCII_G) and
+               network_driver.response[position + 1] == ASCII_PIPE {
                 position = parse_name(position + 2, field_one, 16)
-                if kind == 'F' {
-                    ubyte presence = 'X'
-                    if network_driver.response[position] == '|' and
+                if kind == ASCII_F {
+                    ubyte presence = ASCII_X
+                    if network_driver.response[position] == ASCII_PIPE and
                        position + 1 < network_driver.response_length
                         presence = network_driver.response[position + 1]
                     comms_data.add_friend(presence, field_one)
@@ -137,6 +155,7 @@ chat_network {
     sub load_messages() -> bool {
         ubyte output = begin_request(iso:"messages")
         ubyte position = 0
+        ubyte offset = comms_data.message_offset()
         comms_data.selected_name(selected)
         command[output] = '&' output++
         command[output] = 'k' output++
@@ -147,14 +166,21 @@ chat_network {
         command[output] = comms_data.selected_kind() output++
         output = append(iso:"&target=", output)
         output = append_encoded(selected, output)
+        output = append(iso:"&offset=", output)
+        if offset >= 10 {
+            command[output] = $30 + offset / 10
+            output++
+        }
+        command[output] = $30 + offset % 10
+        output++
         if not finish_request(output)
             return false
         comms_data.clear_messages()
         while position + 2 < network_driver.response_length {
-            if network_driver.response[position] == 'M' and
-               network_driver.response[position + 1] == '|' {
+            if network_driver.response[position] == ASCII_M and
+               network_driver.response[position + 1] == ASCII_PIPE {
                 position = parse_name(position + 2, field_one, 16)
-                if network_driver.response[position] == '|'
+                if network_driver.response[position] == ASCII_PIPE
                     position++
                 position = parse_name(position, field_two, 32)
                 comms_data.add_message(field_one, field_two)

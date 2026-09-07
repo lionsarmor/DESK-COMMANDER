@@ -71,7 +71,7 @@ buttons, and Settings page are the intended interface.
 | File Manager | 🟡 | Device-8 listing, file/folder icons, paging, file operations, stable directory restoration, text editing, and external PRG launch |
 | Text Editor ++ | 🟡 | 2 KB multiline editor with pointer placement, Save, Save As, dirty state, and clean return to Files |
 | Settings | 🟡 | Theme, pointer, sound, and clock persist; Network and About open |
-| Comms | 🟡 | Multi-bank LAN chat client plus browser console, separate saved identity/host, persistent offline friends, unified groups, presence colors, diagnostics, and two-way messages |
+| Comms | 🟡 | Multi-bank public-alpha chat plus manager console; inline composition, automatic receive polling, rolling 100-message history, ASCII-safe parsing, saved identity/host, persistent contacts, presence colors, diagnostics, and two-way messages |
 | Market Watch | 🟡 | Saved watchlist/quotes, cross-power-cycle public-asset comparison, Finnhub HTTPS, and three-row rotation |
 | TexElec network | 🟡 | Physical UART, scan, selectable SSIDs, join, and link status work; the R13 screen adds flicker-free list scrolling and immediate action feedback |
 | Persistence | 🟡 | Versioned `DCSTATE.BIN` preserves relevant alpha state after normal shutdown; atomic recovery remains |
@@ -284,7 +284,18 @@ Target hardware: [TexElec Commander X16 921.6Kbps Serial & ESP32 Network Card](h
 - [ ] Implement and test device provisioning, challenge-response authentication,
       ChaCha20-Poly1305 sessions, replay protection, and revocation.
 - [ ] Open the RetroWire TCP port only after the security acceptance tests pass.
-- [ ] Add a domain and Caddy-managed HTTPS for the maintenance console.
+- [ ] Replace the temporary hostname with a permanent branded domain while
+      retaining Caddy-managed HTTPS for the maintenance console.
+- [x] Deploy the authenticated RODDY master console through Caddy/HTTPS at the
+      temporary `sslip.io` hostname.
+- [x] Publish the bounded port-8088 X16 compatibility bridge for physical
+      end-to-end chat testing, with a visible plaintext-alpha warning.
+- [x] Keep the X16 HOST value editable so official, community, and private
+      compatible servers remain possible.
+- [x] Let the manager enumerate every user/friend/group and initiate a direct
+      conversation that automatically appears on the recipient retro client.
+- [x] Add a compact manager-console group tester that creates test users, adds
+      them to the selected group, and sends messages under each test name.
 - [ ] Migrate validated LAN-server chat records into the public database.
 - [ ] Accept a saved hostname/HTTPS origin in addition to a 15-character IPv4
       LAN address; do not append port 8088 when an HTTPS origin supplies 443.
