@@ -111,12 +111,21 @@ screensaver {
         draw_space_scene()
 
         bool finished = false
+        ; Opening the saver with the mouse leaves that button held for a few
+        ; frames. Do not arm mouse-to-exit until the launch click is released.
+        bool mouse_exit_armed = input.buttons == 0
         do {
             sys.waitvsync()
             input.poll()
 
-            if input.key != 0 or input.buttons != 0
+            if input.key != 0
                 finished = true
+
+            if mouse_exit_armed {
+                if input.buttons != 0
+                    finished = true
+            } else if input.buttons == 0
+                mouse_exit_armed = true
 
             frame++
             if frame == 2 {
