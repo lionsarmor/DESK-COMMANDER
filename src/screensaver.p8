@@ -68,7 +68,7 @@ screensaver {
     }
 
     sub draw_orb() {
-        ; Black rim, green energy, and an offset glint keep the moving target
+        ; Black rim, green energy, and an offset glint keep the steady orb
         ; bold and cartoony instead of looking like another star.
         gfx_lores.disc(orb_x, orb_y, 13, theme.INK)
         gfx_lores.disc(orb_x, orb_y, 10, theme.GREEN)
