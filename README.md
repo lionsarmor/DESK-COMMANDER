@@ -44,8 +44,8 @@ distinctly retro.
   rename, move, delete, edit text, and launch X16 programs.
 - **✍️ Text Editor ++:** edit multiline text with mouse placement, Save, Save
   As, and an unsaved-work warning.
-- **🌌 Deep Space Screensaver:** watch a cartoon starfighter chase a moving
-  green orb through parallax stars and laser fire; leave with any key or click.
+- **🌌 Deep Space Screensaver:** watch a clean parallax starfield surrounding
+  a steady green orb; leave instantly with any key or mouse click.
 
 ### Connected applications
 
@@ -77,7 +77,7 @@ distinctly retro.
 | Calculator | Arithmetic, decimals, backspace, divide-by-zero handling | Memory keys and final edge-case testing |
 | File Manager | Real device-8 browsing, file/folder operations, text open, and protected PRG/AUTOBOOT launch | Copy, destination browser, filters, richer error handling |
 | Text Editor ++ | Multiline editing, Save, Save As, mouse placement | Find, clipboard, undo, larger documents, safer replacement saves |
-| Screensaver | Full-screen parallax stars and a moving cartoon starfighter chasing a green orb with lasers; instant keyboard/mouse exit | Additional scenes and optional idle timer |
+| Screensaver | Full-screen parallax stars and a steady, flicker-free green orb; instant keyboard/mouse exit | Additional scenes and optional idle timer |
 | Settings | Persistent theme, cursor, sound, and clock; Network and About | Keyboard focus, Restore Defaults, storage tools decision |
 | Network Setup | Physical card detection, scan, join, IP status, disconnect, connection test | Recovery modes, richer errors, sustained-transfer testing |
 | Comms | Public-alpha direct/group chat, persistence, presence, sounds, emoji, browser clients | User authentication, encryption, unread state, moderation, nonblocking transport |

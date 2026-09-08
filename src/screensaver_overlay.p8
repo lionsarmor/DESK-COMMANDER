@@ -4,8 +4,7 @@
 
 %import screensaver
 
-; Bank 18 entry table: initialize BSS, run the saver, and draw the two compact
-; desktop cards that share this graphics bank.
+; Bank 18 entry table: initialize the library and run the screensaver.
 main {
     %jmptable (screensaver.open)
 

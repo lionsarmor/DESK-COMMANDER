@@ -83,16 +83,9 @@ desktop_extras {
         gfx_lores.fillrect(286, 162, 2, 2, theme.SOFT_BLUE)
         gfx_lores.fillrect(294, 181, 1, 1, theme.PAPER)
 
-        ; Tiny rocket and ringed planet advertise the full-screen chase.
-        gfx_lores.fillrect(234, 180, 18, 7, theme.PAPER)
-        gfx_lores.fillrect(239, 176, 10, 15, theme.PAPER)
-        gfx_lores.fillrect(247, 179, 8, 9, theme.RED)
-        gfx_lores.fillrect(241, 179, 4, 4, theme.BLUE)
-        gfx_lores.fillrect(230, 182, 5, 3, theme.GOLD)
-        gfx_lores.line(264, 187, 300, 196, theme.GOLD)
-        gfx_lores.line(265, 184, 300, 199, theme.SOFT_BLUE)
-        gfx_lores.disc(283, 192, 13, theme.BLUE)
-        gfx_lores.disc(279, 188, 7, theme.SOFT_BLUE)
-        gfx_lores.line(266, 190, 299, 196, theme.GOLD)
+        ; Match the quiet full-screen scene: one bright orb in deep space.
+        gfx_lores.disc(274, 182, 13, theme.INK)
+        gfx_lores.disc(274, 182, 10, theme.GREEN)
+        gfx_lores.disc(271, 179, 5, theme.SOFT_BLUE)
     }
 }

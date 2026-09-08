@@ -57,7 +57,7 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 | Calculator | ✅ | Mouse and keyboard arithmetic, decimals, backspace, and divide-by-zero handling |
 | File Manager | 🟡 | Real device-8 browsing, file/folder creation, rename, move, delete, text open, and PRG launch |
 | Text Editor ++ | 🟡 | 2 KB multiline editor, mouse placement, Save, Save As, and dirty-file warning |
-| Deep Space Screensaver | ✅ | Full-screen parallax stars and a moving cartoon fighter/orb laser chase with instant keyboard/mouse exit |
+| Deep Space Screensaver | ✅ | Full-screen parallax stars and a steady, flicker-free green orb with instant keyboard/mouse exit |
 | Network Setup | 🟡 | Real `$9FE0` UART detection, ZiModem, scrollable scan, join, IP status, disconnect, and connection test |
 | Comms | 🟡 | Saved user/host, friends, groups, direct/group messaging, polling, history, presence, sounds, and five emoji |
 | Browser chat | 🟡 | Public X16-style tester plus protected RODDY manager console |
