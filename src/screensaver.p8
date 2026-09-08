@@ -18,8 +18,11 @@ screensaver {
     ubyte[STAR_COUNT] star_y
     ubyte[STAR_COUNT] star_speed
     ubyte frame
+    ubyte orb_frame
     uword orb_x
     ubyte orb_y
+    bool orb_moving_right
+    bool orb_moving_down
 
     sub prepare_graphics() {
         ; A loadable library does not run the main PRG's BSS initializer. Always
@@ -36,13 +39,16 @@ screensaver {
             star_speed[index] = index % 3 + 1
         }
         frame = 0
+        orb_frame = 0
         orb_x = 258
         orb_y = 96
+        orb_moving_right = true
+        orb_moving_down = true
     }
 
     sub star_crosses_orb(ubyte index) -> bool {
-        ; Keep the animated star layer away from the orb. The orb is painted
-        ; once and never erased, which eliminates visible erase/redraw flashes.
+        ; Stars crossing the moving orb are hidden behind it. This prevents a
+        ; star's erase pass from punching a one-frame black hole in the face.
         return star_x[index] >= orb_x - 16 and
                star_x[index] <= orb_x + 16 and
                star_y[index] >= orb_y - 16 and
@@ -68,11 +74,50 @@ screensaver {
     }
 
     sub draw_orb() {
-        ; Black rim, green energy, and an offset glint keep the steady orb
+        ; Black rim, green energy, and an offset glint keep the drifting orb
         ; bold and cartoony instead of looking like another star.
         gfx_lores.disc(orb_x, orb_y, 13, theme.INK)
         gfx_lores.disc(orb_x, orb_y, 10, theme.GREEN)
         gfx_lores.disc(orb_x - 3, orb_y - 3, 5, theme.SOFT_BLUE)
+    }
+
+    sub move_orb() {
+        uword old_x = orb_x
+        ubyte old_y = orb_y
+
+        if orb_moving_right {
+            orb_x++
+            if orb_x >= 270
+                orb_moving_right = false
+        } else {
+            orb_x--
+            if orb_x <= 246
+                orb_moving_right = true
+        }
+
+        if orb_moving_down {
+            orb_y++
+            if orb_y >= 104
+                orb_moving_down = false
+        } else {
+            orb_y--
+            if orb_y <= 88
+                orb_moving_down = true
+        }
+
+        ; Paint the new position before removing the old trailing edge. The
+        ; orb therefore remains visible throughout the update instead of
+        ; blinking through a fully-erased frame.
+        draw_orb()
+        if orb_x > old_x
+            gfx_lores.fillrect(old_x - 13, old_y - 13, 1, 27, SPACE_BLACK)
+        else
+            gfx_lores.fillrect(old_x + 13, old_y - 13, 1, 27, SPACE_BLACK)
+
+        if orb_y > old_y
+            gfx_lores.fillrect(old_x - 13, old_y - 13, 27, 1, SPACE_BLACK)
+        else
+            gfx_lores.fillrect(old_x - 13, old_y + 13, 27, 1, SPACE_BLACK)
     }
 
     sub draw_space_scene() {
@@ -131,6 +176,13 @@ screensaver {
             if frame == 2 {
                 frame = 0
                 animate_stars()
+            }
+
+            ; Seven or eight tiny steps per second produce a calm drift.
+            orb_frame++
+            if orb_frame == 8 {
+                orb_frame = 0
+                move_orb()
             }
         } until finished
 
