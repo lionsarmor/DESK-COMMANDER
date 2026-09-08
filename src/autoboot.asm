@@ -12,7 +12,7 @@
         .word 10
         .byte $93                 ; BASIC LOAD token
         .byte $22
-        .text "DESKCMD.PRG"
+        .text "DCMAIN.PRG"
         .byte $22
         .byte 0
 

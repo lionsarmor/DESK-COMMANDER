@@ -2,14 +2,14 @@
 ; Shared persistent-state map
 ; -----------------------------------------------------------------------------
 ;
-; Mutable organizer data is mirrored into one 2 KB block of VERA RAM. The
+; Mutable organizer data is mirrored into one 4 KB block of VERA RAM. The
 ; bank-10 storage service writes that block to DCSTATE.BIN on device 8. Keeping
 ; the map here lets the desktop and every loadable app use the same offsets.
 
 state_data {
     const ubyte VRAM_BANK = 1
     const uword BASE = $6000
-    const uword SIZE = 2048
+    const uword SIZE = 4096
 
     const uword PREF_MARKER = BASE + 8
     const uword PREF_SOUND = BASE + 9
@@ -39,6 +39,15 @@ state_data {
 
     ; Market Watch owns the final 768 bytes, offsets 1280..2047.
     const uword MARKET = BASE + $0500
+
+    ; V2 expansion area. Six 108-character note bodies plus terminators occupy
+    ; offsets 2049..2702, safely below the temporary Comms cache at $7000.
+    const uword NOTES_BODY = BASE + $0800
+
+    ; Comms passphrase is deliberately outside the original identity block so
+    ; format-V1 contact cards are never overlapped during migration. It is
+    ; needed on each HTTPS request but is never displayed after entry.
+    const uword COMMS_SECRET = BASE + $0a90 ; 25 bytes, offsets 2704..2728
 
     ; Fixed golden-RAM mailbox used by the banked bulk-copy routines.
     &uword transfer_memory = $0750

@@ -26,7 +26,7 @@ comms_app {
     extsub @bank 16 $a00c = chat_draw_composer() clobbers(A, X, Y)
     extsub @bank 16 $a00f = chat_insert_emoji() clobbers(A, X, Y)
     extsub @bank 16 $a012 = chat_draw_emoji_picker() clobbers(A, X, Y)
-    extsub @bank 17 $a00c = chat_draw_invalid_ip() clobbers(A, X, Y)
+    extsub @bank 17 $a00f = chat_secret_dialog() clobbers(X, Y) -> bool @A
 
     ubyte[17] name_text
     ; edit_text doubles as the inline message draft. Dialogs and the composer
@@ -46,44 +46,13 @@ comms_app {
         return key
     }
 
-    sub valid_ip(str value) -> bool {
-        ; Accept a plain dotted IPv4 address only. Besides catching typos,
-        ; this prevents stray keyboard bytes from ever reaching ZiModem or
-        ; the persistent state file.
-        ubyte index = 0
-        ubyte dots = 0
-        ubyte digits = 0
-        uword octet = 0
-        while value[index] != 0 {
-            ubyte character = value[index]
-            if character == '.' {
-                if digits == 0 or octet > 255 or dots == 3 return false
-                dots++
-                digits = 0
-                octet = 0
-            } else if character >= '0' and character <= '9' {
-                if digits == 3 return false
-                octet = octet * 10 + character - '0'
-                digits++
-            } else
-                return false
-            index++
-        }
-        return dots == 3 and digits > 0 and octet <= 255
-    }
-
-    sub entry_is_valid(bool ip_only) -> bool {
-        if ip_only return valid_ip(edit_text)
-        return edit_text[0] != 0
-    }
-
     sub draw_edit_field() {
         gfx_lores.fillrect(61, 111, 198, 24, theme.INK)
         gfx_lores.fillrect(64, 114, 192, 18, theme.PAPER)
         gfx_lores.text(69, 120, theme.INK, edit_text)
     }
 
-    sub edit_dialog(str heading, ubyte maximum, bool ip_only) -> bool {
+    sub edit_dialog(str heading, ubyte maximum, bool host_only) -> bool {
         bool done = false
         bool accepted = false
         edit_text[0] = 0
@@ -106,15 +75,15 @@ comms_app {
                 edit_text[length - 1] = 0
                 draw_edit_field()
             } else if input.key == $0d and length > 0 {
-                if entry_is_valid(ip_only) {
-                    accepted = true
-                    done = true
-                } else
-                    chat_draw_invalid_ip()
+                accepted = true
+                done = true
             } else if typed >= 32 and typed <= 126 and length < maximum {
                 ; General chat fields accept printable ASCII. The server-IP
                 ; field is deliberately stricter: digits and periods only.
-                if not ip_only or (typed >= '0' and typed <= '9') or typed == '.' {
+                if not host_only or
+                   (typed >= '0' and typed <= '9') or typed == '.' or
+                   typed == '-' or (typed >= 'A' and typed <= 'Z') or
+                   (typed >= 'a' and typed <= 'z') {
                     edit_text[length] = typed
                     edit_text[length + 1] = 0
                     draw_edit_field()
@@ -122,11 +91,8 @@ comms_app {
             }
             if input.left_pressed() {
                 if input.inside(78, 143, 67, 19) and length > 0 {
-                    if entry_is_valid(ip_only) {
-                        accepted = true
-                        done = true
-                    } else
-                        chat_draw_invalid_ip()
+                    accepted = true
+                    done = true
                 } else if input.inside(165, 143, 67, 19)
                     done = true
             }
@@ -155,9 +121,19 @@ comms_app {
 
     sub configure_user() {
         if not edit_dialog(iso:"USERNAME", 16, false) { chat_draw() return }
+        ubyte copy_index = 0
+        while edit_text[copy_index] != 0 and copy_index < 16 {
+            name_text[copy_index] = edit_text[copy_index]
+            copy_index++
+        }
+        name_text[copy_index] = 0
+        if not chat_secret_dialog() {
+            chat_draw()
+            return
+        }
         ; The username is one setting and is saved immediately. Changing it
         ; never makes the user retype the separately stored server address.
-        comms_data.set_username(edit_text)
+        comms_data.set_username(name_text)
         if not comms_data.has_host() {
             copy_status(iso:"SET THE SERVER IP NEXT", theme.GOLD)
             chat_draw()
@@ -172,7 +148,7 @@ comms_app {
     }
 
     sub configure_host() {
-        if not edit_dialog(iso:"CHAT SERVER LAN IP", 15, true) { chat_draw() return }
+        if not edit_dialog(iso:"HTTPS CHAT HOST", 31, true) { chat_draw() return }
         ; set_host saves the validated address to DCSTATE.BIN immediately.
         ; It remains configured across power cycles until HOST changes it.
         comms_data.set_host(edit_text)

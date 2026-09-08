@@ -32,6 +32,14 @@ if [[ -f "$install_dir/ZZNETPICK.BIN" ]]; then
     echo "Removed obsolete runtime file: ZZNETPICK.BIN"
 fi
 
+# Older alphas called the real program DESKCMD.PRG inside the application
+# directory. It is now DCMAIN.PRG so it cannot be confused with the tiny
+# root-level DESKCMD.PRG shortcut.
+if [[ -f "$install_dir/DESKCMD.PRG" ]]; then
+    rm -f -- "$install_dir/DESKCMD.PRG"
+    echo "Removed obsolete runtime file: DESKCMD/DESKCMD.PRG"
+fi
+
 echo
 echo "Installing runtime files into: $install_dir"
 for source_file in "$package_dir"/*; do

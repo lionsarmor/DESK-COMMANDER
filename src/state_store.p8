@@ -11,15 +11,14 @@
 ; explicitly in ROADMAP.md before this storage layer can be called V1-safe.
 
 state_store {
-    const ubyte FORMAT_VERSION = 1
+    const ubyte FORMAT_VERSION = 2
     ubyte[65] io_buffer
 
-    sub has_valid_header() -> bool {
+    sub has_signature() -> bool {
         return state_data.read(state_data.BASE) == 'D' and
                state_data.read(state_data.BASE + 1) == 'C' and
                state_data.read(state_data.BASE + 2) == 'S' and
-               state_data.read(state_data.BASE + 3) == 'T' and
-               state_data.read(state_data.BASE + 4) == FORMAT_VERSION
+               state_data.read(state_data.BASE + 3) == 'T'
     }
 
     sub clear_image() {
@@ -46,8 +45,21 @@ state_store {
 
         ; Headerless VLOAD writes directly to VERA without consuming main RAM.
         if diskio.vload_raw(iso:"DCSTATE.BIN", state_data.VRAM_BANK,
-                            state_data.BASE) and has_valid_header()
-            return
+                            state_data.BASE) and has_signature() {
+            if state_data.read(state_data.BASE + 4) == FORMAT_VERSION
+                return
+
+            ; V1 was exactly 2 KB. Preserve it, clear only the new V2 half,
+            ; then promote the version before writing the expanded image.
+            if state_data.read(state_data.BASE + 4) == 1 {
+                uword offset
+                for offset in 2048 to state_data.SIZE - 1
+                    state_data.write(state_data.BASE + offset, 0)
+                state_data.write(state_data.BASE + 4, FORMAT_VERSION)
+                persist()
+                return
+            }
+        }
 
         ; Missing, truncated, or newer/unknown data starts a clean state image.
         clear_image()

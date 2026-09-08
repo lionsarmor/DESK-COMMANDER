@@ -11,6 +11,7 @@ ZZSTATE.BIN
 ZZNOTES.BIN
 ZZCOMMS.BIN
 DCSTATE.BIN
+dist/release/*.zip
 server/chat-data.json
 server/chat-data.tmp
 server/__pycache__/

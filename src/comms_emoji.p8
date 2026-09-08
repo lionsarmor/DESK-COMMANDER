@@ -1,5 +1,7 @@
 %import comms_data
 %import gfx_lores
+%import input
+%import strings
 %import theme
 
 ; Five simple face sprites for Desk Comms. Artwork lives in a separate code
@@ -10,6 +12,67 @@ comms_emoji {
     const ubyte FACE_WINK = $57
     const ubyte FACE_FROWN = $46
     const ubyte FACE_ANGRY = $41
+    ubyte[25] secret_text
+    ubyte[25] masked_text
+
+    sub draw_secret_field() {
+        ubyte index = 0
+        while secret_text[index] != 0 and index < 24 {
+            masked_text[index] = '*'
+            index++
+        }
+        masked_text[index] = 0
+        gfx_lores.fillrect(61, 111, 198, 24, theme.INK)
+        gfx_lores.fillrect(64, 114, 192, 18, theme.PAPER)
+        gfx_lores.text(69, 120, theme.INK, masked_text)
+    }
+
+    sub secret_dialog() -> bool {
+        bool done = false
+        bool accepted = false
+        secret_text[0] = 0
+        prepare_draw()
+        gfx_lores.fillrect(47, 77, 226, 95, theme.INK)
+        gfx_lores.fillrect(44, 74, 226, 95, theme.PAPER)
+        gfx_lores.rect(44, 74, 226, 95, theme.INK)
+        gfx_lores.fillrect(45, 75, 224, 22, theme.BLUE)
+        gfx_lores.text(52, 82, theme.PAPER, iso:"PASSWORD (8-24 CHARS)")
+        draw_secret_field()
+        gfx_lores.fillrect(78, 143, 67, 19, theme.BLUE)
+        gfx_lores.text(99, 149, theme.PAPER, iso:"OK")
+        gfx_lores.fillrect(165, 143, 67, 19, theme.RED)
+        gfx_lores.text(181, 149, theme.PAPER, iso:"CANCEL")
+        do {
+            sys.waitvsync()
+            input.poll()
+            ubyte length = strings.length(secret_text)
+            ubyte typed = input.key
+            if typed >= $c1 and typed <= $da
+                typed -= $80
+            if input.key == $14 and length > 0 {
+                secret_text[length - 1] = 0
+                draw_secret_field()
+            } else if input.key == $0d and length >= 8 {
+                accepted = true
+                done = true
+            } else if typed >= 32 and typed <= 126 and length < 24 {
+                secret_text[length] = typed
+                secret_text[length + 1] = 0
+                draw_secret_field()
+            }
+            if input.left_pressed() {
+                if input.inside(78, 143, 67, 19) and length >= 8 {
+                    accepted = true
+                    done = true
+                } else if input.inside(165, 143, 67, 19)
+                    done = true
+            }
+        } until done or input.key == $1b
+        input.key = 0
+        if accepted
+            comms_data.set_secret(secret_text)
+        return accepted
+    }
 
     sub prepare_draw() {
         ; This file is compiled as a banked library, so its BSS is not cleared

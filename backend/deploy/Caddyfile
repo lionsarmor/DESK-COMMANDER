@@ -1,5 +1,5 @@
-# HTTPS is for the authenticated browser master console.
-# The X16 compatibility endpoint remains on direct port 8088 until RetroWire.
-console.143-244-168-180.sslip.io {
+# Caddy is the only supported public entry point. It provides HTTPS for both
+# browser sessions and ZiModem AT&G requests; port 8088 stays loopback-only.
+143-244-168-180.sslip.io, console.143-244-168-180.sslip.io {
     reverse_proxy 127.0.0.1:8088
 }

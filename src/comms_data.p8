@@ -23,6 +23,7 @@ comms_data {
 
     const uword USERNAME = state_data.COMMS + 4
     const uword HOST = state_data.COMMS + 21
+    const uword SECRET = state_data.COMMS_SECRET
 
     sub read(uword address) -> ubyte { return cx16.vpeek(VRAM_BANK, address) }
     sub write(uword address, ubyte value) { cx16.vpoke(VRAM_BANK, address, value) }
@@ -63,6 +64,7 @@ comms_data {
         state_data.write(state_data.COMMS + 3, 'T')
         clear(USERNAME, 17)
         clear(HOST, 32)
+        clear(SECRET, 25)
         state_data.save()
     }
 
@@ -82,9 +84,14 @@ comms_data {
     sub get_username(str value) { copy_from(USERNAME, value, 16) }
     sub set_host(str value) { copy_to(HOST, value, 31) state_data.save() }
     sub get_host(str value) { copy_from(HOST, value, 31) }
+    sub set_secret(str value) { copy_to(SECRET, value, 24) state_data.save() }
+    sub get_secret(str value) { copy_from(SECRET, value, 24) }
     sub has_username() -> bool { return read(USERNAME) != 0 }
     sub has_host() -> bool { return read(HOST) != 0 }
-    sub configured() -> bool { return read(USERNAME) != 0 and read(HOST) != 0 }
+    sub has_secret() -> bool { return read(SECRET) != 0 }
+    sub configured() -> bool {
+        return read(USERNAME) != 0 and read(HOST) != 0 and read(SECRET) != 0
+    }
 
     sub clear_lists() { clear(CACHE, 3) clear(FRIENDS, 144) clear(GROUPS, 68) }
     sub friend_count() -> ubyte {

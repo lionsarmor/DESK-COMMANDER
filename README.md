@@ -16,7 +16,7 @@ distinctly retro.
 > [!IMPORTANT]
 > The current release is **version 0.3.0 alpha**. It builds, boots, and runs on
 > a real Commander X16 with ROM r49. Core features are usable, but data-safety,
-> authentication, organizer depth, and long hardware testing must be completed
+> storage recovery, organizer depth, and long hardware testing must be completed
 > before V1. See the [V1 roadmap](ROADMAP.md) for the honest remaining work.
 
 ## ✨ What it can do
@@ -34,10 +34,10 @@ distinctly retro.
 
 ### Organizer applications
 
-- **📝 Notes:** maintain six saved notes in a scrollable list.
+- **📝 Notes:** maintain six titled, multiline notes in a scrollable list.
 - **📅 Calendar:** browse months and add, view, edit, or delete color-coded
   appointments, tasks, and personal events.
-- **📇 Desk Directory:** add, search, scroll, inspect, and delete saved contact cards
+- **📇 Desk Directory:** add, edit, search, scroll, inspect, and delete saved contact cards
   with name, role, phone, email, and social fields.
 - **🧮 Calculator:** perform mouse- or keyboard-driven arithmetic with decimals.
 - **📁 Files:** browse device 8, enter folders, create files or directories,
@@ -71,16 +71,16 @@ distinctly retro.
 | Application | Available now | Important V1 work remaining |
 |---|---|---|
 | Desktop | App rail, glance panels, clock, sound/Wi-Fi status, keyboard selection | Connect glance notes to full Notes data; finish keyboard focus |
-| Notes | Six persistent short notes, add/delete, scrolling, scrollbar | Titles, long bodies, word wrap, undo, import/export |
+| Notes | Six persistent titled multiline notes, transactional Add/Edit/Delete, keyboard focus, scrolling | Word-aware wrapping, undo, import/export |
 | Calendar | Month navigation and 24 persistent editable events | Multiple events per day, agenda, recurrence, reminders, RTC Today |
-| Desk Directory | Blank first run; search, scrolling, detailed cards, Add/Delete, four persistent custom contacts | Edit contacts, larger capacity, sorting, import/export |
+| Desk Directory | Blank first run; search, scrolling, detailed cards, transactional Add/Edit/Delete, four persistent custom contacts | Larger capacity, sorting, duplicate, import/export |
 | Calculator | Arithmetic, decimals, backspace, divide-by-zero handling | Memory keys and final edge-case testing |
 | File Manager | Real device-8 browsing, file/folder operations, text open, and protected PRG/AUTOBOOT launch | Copy, destination browser, filters, richer error handling |
 | Text Editor ++ | Multiline editing, Save, Save As, mouse placement | Find, clipboard, undo, larger documents, safer replacement saves |
 | Screensaver | Full-screen parallax stars and a gently drifting, flicker-free green orb; instant keyboard/mouse exit | Additional scenes and optional idle timer |
 | Settings | Persistent theme, cursor, sound, and clock; Network and About | Keyboard focus, Restore Defaults, storage tools decision |
 | Network Setup | Physical card detection, scan, join, IP status, disconnect, connection test | Recovery modes, richer errors, sustained-transfer testing |
-| Comms | Public-alpha direct/group chat, persistence, presence, sounds, emoji, browser clients | User authentication, encryption, unread state, moderation, nonblocking transport |
+| Comms | Password-authenticated direct/group chat over HTTPS, saved credentials, expiring browser sessions, presence, sounds, emoji | Recovery, credential rotation, certificate pinning, unread state, moderation |
 | Market Watch | Persistent watchlist/cache, keyless assets, optional Finnhub stocks | Hardware API validation, timestamps, rate-limit and stale-data polish |
 
 ## 🚀 Run it in the emulator
@@ -112,6 +112,9 @@ make
 # Create the complete X16 package in dist/sdcard/.
 make sdcard
 
+# Validate, build, and create dist/release/DESK-COMMANDER-X16.zip.
+DESKPKG
+
 # Delete generated build files.
 make clean
 ```
@@ -127,11 +130,19 @@ deskbuild
 ```
 
 That command rebuilds the application, copies the complete runtime into
-`/DESKCMD` on the SD card, installs a root launch shortcut, preserves user data,
-flushes pending writes, and verifies every copied file.
+`/DESKCMD` on the SD card, installs an optional root launch shortcut for this
+development machine, preserves user data, flushes pending writes, and verifies
+every copied file. Public `DESKPKG` archives contain only the single folder.
 
 For a manual installation, run `make sdcard` and copy everything inside
 `dist/sdcard/` into one `DESKCMD` directory on a FAT32 SD card.
+
+For distribution, run `DESKPKG`. It creates one clean archive at
+`dist/release/DESK-COMMANDER-X16.zip` without personal `DCSTATE.BIN` data.
+Extract that archive directly into the SD-card root. The archive contains one
+self-contained `/DESKCMD` directory and puts no loose files in the card root.
+Open that directory in an X16 launcher and select `AUTOBOOT.X16`, or enter the
+directory and load `DCMAIN.PRG` directly from BASIC.
 
 ### Launch from BASIC
 
@@ -145,14 +156,15 @@ Or launch the main program directly:
 
 ```basic
 CD "DESKCMD"
-LOAD "DESKCMD.PRG",8,1
+LOAD "DCMAIN.PRG",8,1
 RUN
 ```
 
 `AUTOBOOT.X16` is the packaged application entry point. A compatible X16 app
 launcher should open the `DESKCMD` directory or its `AUTOBOOT.X16` file. The
-small root `DESKCMD.PRG` is a BASIC launch helper; the real compiled program and
-its loadable banks remain together inside `/DESKCMD`.
+small root `DESKCMD.PRG` is an optional BASIC launch helper. The real compiled
+program is `/DESKCMD/DCMAIN.PRG`, and its loadable banks remain beside it inside
+`/DESKCMD`.
 
 DESK COMMANDER currently targets ROM r49. The official
 [ROM r49 release notes](https://github.com/X16Community/x16-rom/releases/tag/r49)
@@ -167,9 +179,14 @@ recommend VERA 48.0.1 and SMC 48.0.0 or 47.2.3.
   `R` renames, `M` moves, `D` deletes, and `U` goes up.
 - **Text Editor ++:** type normally; `F2` saves, `F4` opens Save As, and `Esc`
   closes with an unsaved-work check.
+- **Notes:** arrows select a slot; `Tab` moves visible focus across the list and
+  Add/Edit/Delete/Done; `Enter` activates it. In the body editor, `Tab` reaches
+  Save or Cancel and `Enter` activates the focused choice.
+- **Desk Directory:** type to filter, use arrows/wheel to select, `Enter` edits,
+  `Insert` adds, and `Delete` twice deletes when the search field is empty.
 - **Network Setup:** `D` detects, `W` scans, `J` joins, `I` checks status, and
   `Esc` closes. Select an SSID with the pointer, arrows, wheel, or number.
-- **Comms:** set `USER` and `HOST`, press `SYNC`, open the square conversation
+- **Comms:** set `USER` plus its password and an HTTPS `HOST`, press `SYNC`, open the square conversation
   selector, choose a friend or group, type in the bottom field, and press
   `Enter` or `SEND`.
 
@@ -221,15 +238,16 @@ groups, 32 members per group, and 100 retained messages per conversation.
 
 In Comms:
 
-1. Set `HOST` to `143.244.168.180`.
-2. Set `USER` to your desired alpha username.
+1. Set `HOST` to `143-244-168-180.sslip.io`.
+2. Set `USER` to your desired username, then enter an 8–24 character password.
+   A new name is securely claimed; an existing name requires its password.
 3. Press `SYNC`.
 4. Open the square conversation selector and choose `WELCOME` or `RODDY`.
 5. Type in the bottom message field and press `SEND`.
 
-`USER` and `HOST` are saved in `DCSTATE.BIN` until changed. The host remains
-editable so the X16 can connect to an official, community, or private compatible
-server.
+`USER`, `HOST`, and the masked account password are saved in `DCSTATE.BIN` until
+changed. The host remains editable so the X16 can connect to an official,
+community, or private HTTPS-compatible server.
 
 ### Browser clients
 
@@ -254,11 +272,19 @@ Display it locally with:
 sed -n '1p' /home/legion/.config/deskcommander/admin-token
 ```
 
+> [!IMPORTANT]
+> Browser and X16 chat now use password-authenticated accounts. Passwords are
+> stored on the server only as salted scrypt hashes. Browser clients receive a
+> random 12-hour bearer session; the X16 sends its credential inside each
+> ZiModem HTTPS request. Messages are TLS-encrypted in transit, but this is not
+> end-to-end encryption—the selected chat server can read stored messages.
+
 > [!WARNING]
-> Browser access uses HTTPS, but the current X16 compatibility bridge on port
-> 8088 is a plaintext alpha protocol without per-user passwords. Use test
-> messages only. Production authentication and encrypted RetroWire sessions are
-> mandatory V1 work.
+> Current ZiModem HTTPS encrypts traffic but does not validate the server
+> certificate, so a hostile network could still impersonate the host. The X16
+> also has no secure credential vault: its masked password is recoverable by
+> someone with the SD card. Do not reuse an important password. Certificate
+> pinning/application-layer server authentication remains a V1 hardening item.
 
 ### Run the local test server
 
@@ -270,9 +296,9 @@ DESKSVR
 ```
 
 The equivalent direct command is `./tools/run-chat-server.sh`. Open
-`http://localhost:8088`, copy the displayed LAN IP, and enter that numeric IP in
-the X16 `HOST` field. The computer and X16 must be on the same non-isolated
-network. Do not expose the local alpha server through router port forwarding.
+`http://localhost:8088` for browser-only local testing. An X16 host now requires
+an HTTPS hostname and reverse proxy; use the Caddy example in `backend/deploy`
+for a private compatible host. Do not expose bare port 8088 to the internet.
 
 ## 📈 Market Watch data
 
@@ -289,19 +315,19 @@ data is informational and may be delayed—it is not trading guidance.
 
 ## 💾 Saved data and privacy
 
-Desk Commander stores its bounded application state in `DCSTATE.BIN` on device
-8. The file has a signature and format version. If it is missing or invalid, the
+Desk Commander stores its bounded 4 KB application state in `DCSTATE.BIN` on
+device 8. The file has a signature and format version. If it is missing or invalid, the
 alpha creates a fresh state image.
 
 | Data | Current behavior |
 |---|---|
 | Theme, cursor, sound, clock | Saved immediately when changed |
-| Notes | Six short slots saved when Notes closes |
+| Notes | Six titled 108-character multiline records saved after each committed edit |
 | Calendar | Current view and up to 24 titled events |
 | Desk Directory | Active/deleted state plus four complete user-created contact cards |
 | Network | Last SSID and confirmed-link indicator; never the Wi-Fi password |
 | Market Watch | Symbols, quotes, page, and optional user API key |
-| Comms identity | X16 username and host saved locally |
+| Comms identity | X16 username, HTTPS host, and masked account password saved locally |
 | Friends, groups, chat history | Saved by the selected chat server |
 | Edited files | Written as ordinary device-8 files |
 
@@ -345,9 +371,10 @@ The pinned toolchain is:
 
 ## 🗺️ What comes next
 
-The next release work is centered on safe SD-card writes, authenticated and
-encrypted public messaging, deeper Notes/Calendar/Desk Directory workflows, consistent
-keyboard focus, safer file editing, and long real-hardware tests.
+The next release work is centered on safe SD-card writes, certificate/server
+authentication, account recovery and credential rotation, deeper Calendar and
+Directory capacity, consistent keyboard parity, safer file editing, and long
+real-hardware tests.
 
 Read [ROADMAP.md](ROADMAP.md) for the prioritized checklist, milestones,
 acceptance journey, and release gates.

@@ -25,14 +25,17 @@ rolodex_app {
     const ubyte CUSTOM_RECORD_SIZE = 88
     const uword CUSTOM_STATE = state_data.ROLODEX_CUSTOM
     const uword OLD_CUSTOM_STATE = state_data.BASE + 900
+    const uword EDIT_BACKUP = $7e00
 
     ; Keep the complete footer hint clear of the action buttons. These shared
     ; values are used for both drawing and mouse hit-testing.
-    const uword ADD_BUTTON_X = 132
-    const ubyte ADD_BUTTON_WIDTH = 39
-    const uword DELETE_BUTTON_X = 175
-    const ubyte DELETE_BUTTON_WIDTH = 58
-    const uword DONE_BUTTON_X = 237
+    const uword ADD_BUTTON_X = 112
+    const ubyte ADD_BUTTON_WIDTH = 36
+    const uword EDIT_BUTTON_X = 152
+    const ubyte EDIT_BUTTON_WIDTH = 42
+    const uword DELETE_BUTTON_X = 198
+    const ubyte DELETE_BUTTON_WIDTH = 34
+    const uword DONE_BUTTON_X = 236
     const ubyte DONE_BUTTON_WIDTH = 50
     const ubyte ACTION_BUTTON_Y = 191
     const ubyte ACTION_BUTTON_HEIGHT = 14
@@ -55,19 +58,6 @@ rolodex_app {
         if state_data.read(state_data.ROLODEX) == $a8 {
             state_data.restore(state_data.ROLODEX + 1, &contact_active,
                                CONTACT_COUNT)
-        } else if state_data.read(state_data.ROLODEX) == $a7 {
-            ; Move custom records out of the final bytes of Comms' host field.
-            state_data.restore(state_data.ROLODEX + 1, &contact_active,
-                               CONTACT_COUNT)
-            migrate_custom_storage()
-            save_state()
-        } else if state_data.read(state_data.ROLODEX) == $a6 {
-            ; The $A6 alpha stored ten demo flags before the four custom flags.
-            ; Preserve the user's real cards while retiring compiled samples.
-            state_data.restore(state_data.ROLODEX + 11, &contact_active,
-                               CONTACT_COUNT)
-            migrate_custom_storage()
-            save_state()
         } else {
             for contact in 0 to CONTACT_COUNT - 1
                 contact_active[contact] = 0
@@ -86,17 +76,6 @@ rolodex_app {
     sub custom_address(ubyte contact, ubyte field) -> uword {
         return CUSTOM_STATE + (contact as uword) *
                CUSTOM_RECORD_SIZE + field
-    }
-
-    sub migrate_custom_storage() {
-        ; Copy backward because the old and new VERA ranges overlap by all but
-        ; four bytes. Forward copying would overwrite data not yet moved.
-        uword offset = CUSTOM_COUNT * CUSTOM_RECORD_SIZE
-        do {
-            offset--
-            state_data.write(CUSTOM_STATE + offset,
-                             state_data.read(OLD_CUSTOM_STATE + offset))
-        } until offset == 0
     }
 
     sub custom_value(ubyte contact, ubyte field, ubyte maximum) -> str {
@@ -244,12 +223,15 @@ rolodex_app {
             1 -> gfx_lores.text(34, 196, theme.RED, iso:"DIR FULL")
             2 -> gfx_lores.text(34, 196, theme.GREEN, iso:"SAVED")
             3 -> gfx_lores.text(34, 196, theme.GREEN, iso:"DELETED")
-            else -> gfx_lores.text(34, 196, theme.SOFT_BLUE, iso:"TYPE TO FIND")
+            4 -> gfx_lores.text(34, 196, theme.RED, iso:"DEL AGAIN")
+            else -> gfx_lores.text(34, 196, theme.SOFT_BLUE, iso:"TYPE FIND")
         }
         draw_action_button(ADD_BUTTON_X, ACTION_BUTTON_Y, ADD_BUTTON_WIDTH,
                            iso:"ADD", theme.GREEN)
+        draw_action_button(EDIT_BUTTON_X, ACTION_BUTTON_Y, EDIT_BUTTON_WIDTH,
+                           iso:"EDIT", theme.BLUE)
         draw_action_button(DELETE_BUTTON_X, ACTION_BUTTON_Y,
-                           DELETE_BUTTON_WIDTH, iso:"DELETE", theme.RED)
+                           DELETE_BUTTON_WIDTH, iso:"DEL", theme.RED)
         draw_action_button(DONE_BUTTON_X, ACTION_BUTTON_Y, DONE_BUTTON_WIDTH,
                            iso:"DONE", theme.BLUE)
     }
@@ -348,13 +330,43 @@ rolodex_app {
             gfx_lores.text(63, 112, theme.INK, field_text)
     }
 
+    sub backup_record(ubyte contact) {
+        ubyte index
+        uword address = custom_address(contact, 0)
+        for index in 0 to CUSTOM_RECORD_SIZE - 1
+            state_data.write(EDIT_BACKUP + index,
+                             state_data.read(address + index))
+    }
+
+    sub restore_record(ubyte contact) {
+        ubyte index
+        uword address = custom_address(contact, 0)
+        for index in 0 to CUSTOM_RECORD_SIZE - 1
+            state_data.write(address + index,
+                             state_data.read(EDIT_BACKUP + index))
+    }
+
+    sub prepare_field(ubyte contact, ubyte field, ubyte maximum,
+                      bool creating) {
+        ubyte index = 0
+        uword address = custom_address(contact, field)
+        if creating {
+            field_text[0] = 0
+            return
+        }
+        while index < maximum and state_data.read(address + index) != 0 {
+            field_text[index] = state_data.read(address + index)
+            index++
+        }
+        field_text[index] = 0
+    }
+
     sub ask_field(str title, str hint, ubyte maximum,
                   bool required) -> bool {
         bool finished = false
         bool accepted = false
         ubyte length
 
-        field_text[0] = 0
         gfx_lores.fillrect(45, 70, 230, 107, theme.INK)
         gfx_lores.fillrect(42, 67, 230, 107, theme.PAPER)
         gfx_lores.rect(42, 67, 230, 107, theme.INK)
@@ -421,39 +433,45 @@ rolodex_app {
             return
         }
 
-        clear_custom(contact)
-        if not ask_field(iso:"ADD CONTACT 1/5", iso:"NAME (REQUIRED)",
-                         16, true) {
-            draw_window()
+        edit_contact(contact, true)
+    }
+
+    sub edit_contact(ubyte contact, bool creating) {
+        backup_record(contact)
+        if creating
+            clear_custom(contact)
+
+        prepare_field(contact, CUSTOM_NAME, 16, creating)
+        if not ask_field(iso:"CONTACT 1/5", iso:"NAME (REQUIRED)", 16, true) {
+            restore_record(contact)
             return
         }
         save_custom_value(contact, CUSTOM_NAME, 16)
 
-        if not ask_field(iso:"ADD CONTACT 2/5", iso:"ROLE / COMPANY",
-                         16, false) {
-            clear_custom(contact)
-            draw_window()
+        prepare_field(contact, CUSTOM_ROLE, 16, creating)
+        if not ask_field(iso:"CONTACT 2/5", iso:"ROLE / COMPANY", 16, false) {
+            restore_record(contact)
             return
         }
         save_custom_value(contact, CUSTOM_ROLE, 16)
-        if not ask_field(iso:"ADD CONTACT 3/5", iso:"PHONE",
-                         16, false) {
-            clear_custom(contact)
-            draw_window()
+
+        prepare_field(contact, CUSTOM_PHONE, 16, creating)
+        if not ask_field(iso:"CONTACT 3/5", iso:"PHONE", 16, false) {
+            restore_record(contact)
             return
         }
         save_custom_value(contact, CUSTOM_PHONE, 16)
-        if not ask_field(iso:"ADD CONTACT 4/5", iso:"EMAIL",
-                         19, false) {
-            clear_custom(contact)
-            draw_window()
+
+        prepare_field(contact, CUSTOM_EMAIL, 19, creating)
+        if not ask_field(iso:"CONTACT 4/5", iso:"EMAIL", 19, false) {
+            restore_record(contact)
             return
         }
         save_custom_value(contact, CUSTOM_EMAIL, 19)
-        if not ask_field(iso:"ADD CONTACT 5/5", iso:"SOCIAL HANDLE",
-                         16, false) {
-            clear_custom(contact)
-            draw_window()
+
+        prepare_field(contact, CUSTOM_SOCIAL, 16, creating)
+        if not ask_field(iso:"CONTACT 5/5", iso:"SOCIAL HANDLE", 16, false) {
+            restore_record(contact)
             return
         }
         save_custom_value(contact, CUSTOM_SOCIAL, 16)
@@ -461,12 +479,14 @@ rolodex_app {
         contact_active[contact] = 1
         search_text[0] = 0
         reset_search_selection()
-        selected_result = matching_contact_count() - 1
-        if selected_result >= VISIBLE_ROWS
-            scroll_offset = selected_result - VISIBLE_ROWS + 1
         status_message = 2
         save_state()
-        draw_window()
+    }
+
+    sub edit_selected_contact() {
+        ubyte contact = contact_at_result(selected_result)
+        if contact != NO_CONTACT
+            edit_contact(contact, false)
     }
 
     sub reset_search_selection() {
@@ -492,6 +512,7 @@ rolodex_app {
     }
 
     sub move_up() {
+        status_message = 0
         if selected_result > 0
             selected_result--
         if selected_result < scroll_offset
@@ -500,6 +521,7 @@ rolodex_app {
 
     sub move_down() {
         ubyte count = matching_contact_count()
+        status_message = 0
 
         if selected_result + 1 < count
             selected_result++
@@ -525,6 +547,11 @@ rolodex_app {
 
         if contact == NO_CONTACT
             return
+
+        if status_message != 4 {
+            status_message = 4
+            return
+        }
 
         contact_active[contact] = 0
         clear_custom(contact)
@@ -569,6 +596,7 @@ rolodex_app {
                     if clicked_row < VISIBLE_ROWS {
                         clicked_contact = contact_at_result(scroll_offset + clicked_row)
                         if clicked_contact != NO_CONTACT {
+                            status_message = 0
                             selected_result = scroll_offset + clicked_row
                             draw_results()
                         }
@@ -577,7 +605,12 @@ rolodex_app {
                                        ADD_BUTTON_WIDTH,
                                        ACTION_BUTTON_HEIGHT)
                     add_contact()
-                else if input.inside(DELETE_BUTTON_X, ACTION_BUTTON_Y,
+                else if input.inside(EDIT_BUTTON_X, ACTION_BUTTON_Y,
+                                     EDIT_BUTTON_WIDTH,
+                                     ACTION_BUTTON_HEIGHT) {
+                    edit_selected_contact()
+                    draw_window()
+                } else if input.inside(DELETE_BUTTON_X, ACTION_BUTTON_Y,
                                      DELETE_BUTTON_WIDTH,
                                      ACTION_BUTTON_HEIGHT) {
                     delete_selected_contact()
@@ -603,7 +636,16 @@ rolodex_app {
             }
 
             ; PETSCII cursor-down is $11; cursor-up is $91.
-            if input.key == $11 {
+            ; INSERT adds a card; ENTER edits; an empty-search DELETE requires
+            ; the same second press as the mouse button. These shortcuts keep
+            ; the complete Directory workflow usable without a mouse.
+            if input.key == $94 {
+                add_contact()
+                draw_window()
+            } else if input.key == $14 and search_text[0] == 0 {
+                delete_selected_contact()
+                draw_window()
+            } else if input.key == $11 {
                 old_selection = selected_result
                 move_down()
                 if selected_result != old_selection
@@ -613,6 +655,9 @@ rolodex_app {
                 move_up()
                 if selected_result != old_selection
                     draw_results()
+            } else if input.key == $0d {
+                edit_selected_contact()
+                draw_window()
             } else if input.key != 0 and input.key != $1b {
                 edit_search(input.key)
                 draw_search_field()

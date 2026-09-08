@@ -17,6 +17,7 @@ chat_network {
 
     ubyte[32] username
     ubyte[32] host
+    ubyte[25] secret
     ubyte[33] action
     ubyte[33] selected
     ubyte[97] message
@@ -101,16 +102,18 @@ chat_network {
         ubyte output = 0
         comms_data.get_username(username)
         comms_data.get_host(host)
-        ; ZiModem AT&G does not take a browser-style scheme here. Its native
-        ; syntax is AT&G"HOST:PORT/path". Supplying "http://" makes some
-        ; firmware builds parse "http" as the host and fail before our local
-        ; server ever sees a request.
-        output = append(iso:"AT&G\"", output)
+        ; ZiModem 4.x AT&G accepts HTTPS URLs and performs TLS on the ESP32.
+        ; This keeps passwords and chat text off the wire without asking the
+        ; 65C02 to implement a modern cipher suite.
+        output = append(iso:"AT&G\"https://", output)
         output = append(host, output)
-        output = append(iso:":8088/x16/", output)
+        output = append(iso:"/x16/", output)
         output = append(endpoint, output)
         output = append(iso:"?user=", output)
-        return append_encoded(username, output)
+        output = append_encoded(username, output)
+        comms_data.get_secret(secret)
+        output = append(iso:"&auth=", output)
+        return append_encoded(secret, output)
     }
 
     sub finish_request(ubyte output) -> bool {

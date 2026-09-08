@@ -1,7 +1,7 @@
 
 ; 64tass Turbo Assembler Macro V1.60.3243 listing file
 ; 64tass --cbm-prg --ascii --case-sensitive --long-branch -Wall -Wno-implied-reg --no-monitor --dump-labels --vice-labels --labels=build/main.vice-mon-list -Wno-shadow --list=build/main.list --output build/main.prg build/main.asm
-; Tue Sep  8 09:05:25 2026
+; Tue Sep  8 11:35:53 2026
 
 ;Offset	;Hex		;Source
 
@@ -10810,18 +10810,20 @@
 =$6000				p8c_BASE = $6000
 =$60a0				p8c_CALENDAR = $60a0
 =$6352				p8c_COMMS = $6352
+=$6a90				p8c_COMMS_SECRET = $6a90
 =$6500				p8c_MARKET = $6500
 =$600d				p8c_MOUSE_MARKER = $600d
 =$600e				p8c_MOUSE_PRESET = $600e
 =$6320				p8c_NETWORK = $6320
 =$6342				p8c_NETWORK_CONNECTED = $6342
 =$6010				p8c_NOTES = $6010
+=$6800				p8c_NOTES_BODY = $6800
 =$600a				p8c_PREF_CLOCK = $600a
 =$6008				p8c_PREF_MARKER = $6008
 =$6009				p8c_PREF_SOUND = $6009
 =$630c				p8c_ROLODEX = $630c
 =$6388				p8c_ROLODEX_CUSTOM = $6388
-=$0800				p8c_SIZE = $0800
+=$1000				p8c_SIZE = $1000
 =$600b				p8c_THEME_MARKER = $600b
 =$600c				p8c_THEME_PACKAGE = $600c
 =1				p8c_VRAM_BANK = 1

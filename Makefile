@@ -394,8 +394,8 @@ run: all
 sdcard: all
 	@echo "Preparing Commander X16 SD-card folder..."
 	@mkdir -p "$(SDCARD_DIR)"
-	@rm -f "$(SDCARD_DIR)/ZZNETPICK.BIN"
-	@cp "$(PROGRAM)" "$(SDCARD_DIR)/DESKCMD.PRG"
+	@rm -f "$(SDCARD_DIR)/ZZNETPICK.BIN" "$(SDCARD_DIR)/DESKCMD.PRG"
+	@cp "$(PROGRAM)" "$(SDCARD_DIR)/DCMAIN.PRG"
 	@cp "$(AUTOBOOT)" "$(SDCARD_DIR)/AUTOBOOT.X16"
 	@cp "$(FILE_MANAGER)" "$(FILE_OPERATIONS)" "$(TEXT_EDITOR)" "$(PROGRAM_LAUNCHER)" \
 		"$(NETWORK_APP)" "$(NETWORK_PICKER)" "$(MARKET_APP)" "$(MARKET_NETWORK)" \

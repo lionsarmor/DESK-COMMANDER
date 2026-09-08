@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""DESK COMMANDER X16 compatibility chat server.
+"""DESK COMMANDER authenticated chat server.
 
-It serves the HTTPS-proxied RODDY maintenance console and a deliberately tiny
-plaintext HTTP protocol for current ZiModem hardware. The latter is an alpha
-bridge only and will be replaced by encrypted RetroWire. Only Python's standard
-library is required.
+The browser uses short-lived bearer sessions over HTTPS. The Commander X16
+uses the same accounts through ZiModem's HTTPS-capable ``AT&G`` command. User
+passwords are never stored: the server keeps salted scrypt hashes only.
 """
 
 from __future__ import annotations
 
 import json
+import base64
+import hashlib
 import ipaddress
 import os
 import secrets
@@ -30,6 +31,7 @@ DATA_FILE = Path(os.environ.get("DESK_CHAT_DATA", ROOT / "chat-data.json"))
 LOCK = threading.Lock()
 CHAT_PORT = int(os.environ.get("DESK_CHAT_PORT", "8088"))
 ONLINE_SECONDS = 75
+SESSION_SECONDS = 12 * 60 * 60
 MAX_REQUEST_BODY = 4096
 MAX_REQUESTS_PER_MINUTE = 240
 # The public alpha must never grow without a ceiling.  The first two limits
@@ -54,6 +56,7 @@ else:
 PRESENCE: dict[str, dict] = {}
 ACTIVITY: list[dict] = []
 REQUEST_TIMES: dict[str, list[float]] = {}
+SESSIONS: dict[str, dict] = {}
 
 
 def detect_lan_ip() -> str:
@@ -86,6 +89,74 @@ def detect_lan_ip() -> str:
 def clean(value: str, limit: int = 16) -> str:
     """Keep the alpha protocol printable, bounded, and X16-friendly."""
     return "".join(c for c in value.strip() if 32 <= ord(c) <= 126)[:limit]
+
+
+def checked_password(value: str) -> str:
+    """Validate one bounded password without ever normalizing its case."""
+    if not 8 <= len(value) <= 24 or any(ord(c) < 32 or ord(c) > 126 for c in value):
+        raise ValueError("PASSWORD MUST BE 8-24 PRINTABLE CHARACTERS")
+    return value
+
+
+def hash_password(password: str) -> str:
+    """Return a portable salted scrypt record using Python's audited primitive."""
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode("utf-8"), salt=salt,
+                            n=16384, r=8, p=1, dklen=32)
+    encode = lambda value: base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+    return f"scrypt$16384$8$1${encode(salt)}${encode(digest)}"
+
+
+def verify_password(password: str, encoded: str) -> bool:
+    try:
+        name, n, r, p, salt_text, digest_text = encoded.split("$")
+        if name != "scrypt":
+            return False
+        decode = lambda value: base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+        expected = decode(digest_text)
+        actual = hashlib.scrypt(password.encode("utf-8"), salt=decode(salt_text),
+                                n=int(n), r=int(r), p=int(p), dklen=len(expected))
+        return secrets.compare_digest(actual, expected)
+    except (ValueError, TypeError):
+        return False
+
+
+def authenticate_account(username: str, password: str, allow_claim: bool = False) -> bool:
+    """Authenticate, or securely claim a new/legacy placeholder account."""
+    password = checked_password(password)
+    profile = DATA["users"].get(username)
+    if profile is None:
+        if not allow_claim:
+            return False
+        profile = ensure_user(username)
+    saved = profile.get("password_hash")
+    if not saved:
+        if not allow_claim:
+            return False
+        profile["password_hash"] = hash_password(password)
+        ensure_default_group(username)
+        save_data()
+        return True
+    return verify_password(password, saved)
+
+
+def issue_session(username: str) -> str:
+    token = secrets.token_urlsafe(32)
+    SESSIONS[token] = {"user": username, "expires": time.time() + SESSION_SECONDS}
+    return token
+
+
+def session_user(authorization: str) -> str:
+    prefix = "Bearer "
+    if not authorization.startswith(prefix):
+        return ""
+    token = authorization[len(prefix):]
+    session = SESSIONS.get(token)
+    if not session or session["expires"] <= time.time():
+        SESSIONS.pop(token, None)
+        return ""
+    session["expires"] = time.time() + SESSION_SECONDS
+    return str(session["user"])
 
 
 # Normalize the configured manager after clean() is available.
@@ -138,6 +209,7 @@ def load_data() -> dict:
             del room["messages"][:-MAX_MESSAGES_PER_THREAD]
         for username, profile in data["users"].items():
             profile.setdefault("friends", [])
+            profile.setdefault("password_hash", None)
             # A direct conversation with yourself is never meaningful. Older
             # manager-console builds accidentally allowed RODDY to add RODDY,
             # which made the web transcript look empty while the real X16
@@ -170,7 +242,7 @@ def ensure_user(username: str) -> dict:
         return DATA["users"][username]
     if len(DATA["users"]) >= MAX_USERS:
         raise ValueError("server user limit reached")
-    DATA["users"][username] = {"friends": []}
+    DATA["users"][username] = {"friends": [], "password_hash": None}
     return DATA["users"][username]
 
 
@@ -320,14 +392,18 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
     def log_message(self, fmt: str, *args) -> None:
-        print(f"[chat] {self.address_string()} {fmt % args}")
+        # X16 credentials are carried inside an HTTPS request because AT&G is
+        # a bounded GET-only transport. Never copy that query into local logs.
+        safe_args = list(args)
+        if safe_args and isinstance(safe_args[0], str):
+            safe_args[0] = safe_args[0].split("?", 1)[0]
+        print(f"[chat] {self.address_string()} {fmt % tuple(safe_args)}")
 
     def send_bytes(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
@@ -386,6 +462,13 @@ class Handler(SimpleHTTPRequestHandler):
             return True
         self.send_json(401, {"ok": False, "error": "manager token required"})
         return False
+
+    def require_user(self, requested: str = "") -> str:
+        user = session_user(self.headers.get("Authorization", ""))
+        if not user or (requested and requested != user):
+            self.send_json(401, {"ok": False, "error": "sign in required"})
+            return ""
+        return user
 
     def admin_state(self) -> dict:
         users = [{"name": name, "presence": presence_of(name),
@@ -457,6 +540,9 @@ class Handler(SimpleHTTPRequestHandler):
             # user's X16 SYNC list or in a group membership list.
             del DATA["users"][target]
             PRESENCE.pop(target, None)
+            for token, session in list(SESSIONS.items()):
+                if session.get("user") == target:
+                    del SESSIONS[token]
             for profile in DATA["users"].values():
                 profile["friends"] = [name for name in profile.get("friends", [])
                                       if name != target]
@@ -518,8 +604,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
 
@@ -549,7 +634,10 @@ class Handler(SimpleHTTPRequestHandler):
             self.handle_x16(path.removeprefix("/x16/"), self.query())
             return
         if path == "/api/state":
-            user = clean(self.query().get("user", ""))
+            requested = clean(self.query().get("user", ""))
+            user = self.require_user(requested)
+            if not user:
+                return
             with LOCK:
                 profile = DATA["users"].get(user, {"friends": []})
                 groups = groups_for_user(user)
@@ -567,7 +655,10 @@ class Handler(SimpleHTTPRequestHandler):
                                                    time.time() - last_x16["at"] < 90)})
             return
         if path == "/api/heartbeat":
-            user = clean(self.query().get("user", ""))
+            requested = clean(self.query().get("user", ""))
+            user = self.require_user(requested)
+            if not user:
+                return
             with LOCK:
                 # Refresh the timer without overwriting an explicit Away or
                 # Offline selection made in the browser console.
@@ -576,6 +667,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(200, {"ok": True})
             return
         if path == "/api/preview":
+            if not self.require_admin():
+                return
             user = clean(self.query().get("user", ""))
             with LOCK:
                 profile = DATA["users"].get(user, {"friends": []})
@@ -588,14 +681,19 @@ class Handler(SimpleHTTPRequestHandler):
                                      "bytes": len(("\n".join(lines) + "\n").encode())})
             return
         if path == "/api/activity":
+            if not self.require_admin():
+                return
             with LOCK:
                 self.send_json(200, list(reversed(ACTIVITY)))
             return
         if path == "/api/messages":
             q = self.query()
+            user = self.require_user(clean(q.get("user", "")))
+            if not user:
+                return
             with LOCK:
                 self.send_json(200, web_messages(
-                    messages_for(clean(q.get("user", "")),
+                    messages_for(user,
                                  clean(q.get("kind", ""), 1),
                                  clean(q.get("target", "")))))
             return
@@ -608,6 +706,23 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             body = self.json_body()
             path = urlparse(self.path).path
+            if path == "/api/session":
+                username = clean(str(body.get("user", "")))
+                password = str(body.get("password", ""))
+                if not username or username == ADMIN_NAME:
+                    raise ValueError("valid username required")
+                with LOCK:
+                    created = username not in DATA["users"] or not DATA["users"].get(username, {}).get("password_hash")
+                    if not authenticate_account(username, password, bool(body.get("create"))):
+                        raise ValueError("username or password is incorrect")
+                    ensure_default_group(username)
+                    touch_user(username, "WEB")
+                    save_data()
+                    token = issue_session(username)
+                self.send_json(200, {"ok": True, "user": username,
+                                     "created": created, "token": token,
+                                     "expiresIn": SESSION_SECONDS})
+                return
             if path.startswith("/api/admin/"):
                 if not self.require_admin():
                     return
@@ -616,6 +731,11 @@ class Handler(SimpleHTTPRequestHandler):
                     save_data()
                 self.send_json(200, result)
                 return
+            requested = clean(str(body.get("user", "")))
+            user = self.require_user(requested)
+            if not user:
+                return
+            body["user"] = user
             with LOCK:
                 result = self.mutate(path.removeprefix("/api/"), body)
                 save_data()
@@ -705,6 +825,10 @@ class Handler(SimpleHTTPRequestHandler):
                 user = clean(q.get("user", ""))
                 if user == ADMIN_NAME:
                     raise ValueError("RESERVED USERNAME")
+                password = q.get("auth", "")
+                if not user or not authenticate_account(
+                        user, password, allow_claim=action == "account"):
+                    raise ValueError("AUTH FAILED")
                 touch_user(user, "X16")
                 note_activity("X16", user, action.upper())
                 if action == "sync":
@@ -758,7 +882,9 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
-    host = "0.0.0.0"
+    # The application origin carries no TLS of its own. Production Caddy runs
+    # on the same machine and is the only public entry point.
+    host = os.environ.get("DESK_CHAT_BIND", "127.0.0.1")
     with LOCK:
         ensure_user(ADMIN_NAME)
         # Upgrade existing saved accounts as well as new ones.  This is

@@ -13,9 +13,9 @@ SSH only. HTTPS and RetroWire ports must remain closed until their respective
 authentication layers are configured and tested.
 
 The temporary physical-X16 bridge is a separate `deskcommander-alpha` service.
-Its master console is HTTPS through Caddy; port 8088 exists only for the current
-ZiModem plaintext compatibility protocol. Never enter its manager token over
-the port-8088 URL.
+Its master console and authenticated X16 endpoint are HTTPS through Caddy.
+Port 8088 is an unencrypted loopback origin and must not be opened publicly.
+Never enter an account password or manager token over the port-8088 URL.
 
 Useful remote checks:
 

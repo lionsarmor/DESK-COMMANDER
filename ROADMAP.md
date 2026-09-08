@@ -21,9 +21,9 @@ organizer applications, file tools, market display, settings, and Comms are
 functional alpha software rather than static mockups.
 
 The project is not V1 yet. Its largest remaining responsibilities are safe
-power-loss-resistant storage, authenticated/encrypted public communication,
-deeper editable organizer records, consistent keyboard operation, and long
-real-hardware reliability testing.
+power-loss-resistant storage, complete keyboard parity, additional organizer
+depth, and long real-hardware reliability testing. Password authentication and
+HTTPS chat transport are now implemented and await physical-card testing.
 
 ### Status marks
 
@@ -51,16 +51,16 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 | Splash and desktop | ✅ | Branded splash, icon rail, glance panels, clock, status icons, mouse and arrow-key launching |
 | Themes and pointer | ✅ | Three saved themes and three saved pointer styles |
 | Sound and clock | ✅ | Saved sound toggle, interface/chat sounds, and working 12/24-hour display |
-| Notes | 🟡 | Six saved short notes with add/delete and dirty-region scrolling |
+| Notes | 🟡 | Six titled multiline notes with transactional editing, delete confirmation, keyboard focus, and dirty-region scrolling |
 | Calendar | 🟡 | Month navigation and 24 saved editable color-coded events |
-| Desk Directory | 🟡 | Searchable/scrollable cards, Add/Delete, and four persistent custom contacts |
+| Desk Directory | 🟡 | Searchable/scrollable cards with complete Add/Edit/Delete and four persistent custom contacts |
 | Calculator | ✅ | Mouse and keyboard arithmetic, decimals, backspace, and divide-by-zero handling |
 | File Manager | 🟡 | Real device-8 browsing, file/folder creation, rename, move, delete, text open, and PRG launch |
 | Text Editor ++ | 🟡 | 2 KB multiline editor, mouse placement, Save, Save As, and dirty-file warning |
 | Deep Space Screensaver | ✅ | Full-screen parallax stars and a gently drifting, flicker-free green orb with instant keyboard/mouse exit |
 | Network Setup | 🟡 | Real `$9FE0` UART detection, ZiModem, scrollable scan, join, IP status, disconnect, and connection test |
-| Comms | 🟡 | Saved user/host, friends, groups, direct/group messaging, polling, history, presence, sounds, and five emoji |
-| Browser chat | 🟡 | Public X16-style tester plus protected RODDY manager console |
+| Comms | 🟡 | Password account, HTTPS transport, saved user/host credential, friends, groups, messages, polling, presence, sounds, and five emoji |
+| Browser chat | 🟡 | Authenticated X16-style tester with expiring sessions plus protected RODDY manager console |
 | Market Watch | 🟡 | Saved 12-symbol list/cache, desktop rotation, keyless assets, and optional Finnhub equities |
 | Persistence | 🟡 | Versioned `DCSTATE.BIN` survives normal restart; interrupted-write recovery is unfinished |
 | Rendering stability | 🟡 | Dirty regions reduce flashing; banked emoji XOR/palette corruption is fixed; full overlay audit remains |
@@ -116,17 +116,21 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [x] Use key-only SSH, firewall defaults, systemd, Caddy, and HTTPS for the web console.
 - [x] Keep the X16 host editable for official, community, and private servers.
 - [x] Document the bounded RetroWire protocol direction.
-- [ ] Add real account creation, sign-in, recovery, and per-user credentials.
-- [ ] Prevent username impersonation on every read and write endpoint.
-- [ ] Enforce friendship, ownership, membership, and manager authorization server-side.
+- [x] Add real account creation, sign-in, salted scrypt password hashes, and per-user credentials.
+- [x] Prevent username impersonation on X16 and browser read/write endpoints.
+- [x] Enforce friendship, ownership, membership, and manager authorization server-side.
+- [x] Give browser users random, expiring bearer sessions and reject anonymous access.
+- [x] Encrypt X16 chat traffic with ZiModem HTTPS and browser traffic with HTTPS.
 - [ ] Move state-changing operations and message bodies out of GET query strings.
-- [ ] Implement device provisioning and challenge-response authentication.
-- [ ] Implement ChaCha20-Poly1305 sessions, replay protection, key rotation, and revocation.
+- [ ] Add account recovery, credential rotation, session revocation, and manager-assisted reset.
+- [ ] Add a certificate-pinning or application-layer server-authentication mechanism;
+      ZiModem encrypts HTTPS but its current TLS client does not validate certificates.
+- [ ] Add device-specific provisioning and revocation if one account may own several machines.
 - [ ] Add request/body limits, rate limits, safe logs, moderation tools, and abuse controls.
 - [ ] Add database backup, restore, migration, and malformed-record recovery tests.
 - [ ] Remove wildcard CORS and expose only reviewed production endpoints.
-- [ ] Keep the current plaintext port-8088 bridge clearly labeled test-only until replaced.
-- [ ] Never store credentials, Wi-Fi passwords, or session secrets in unprotected logs.
+- [x] Remove the public client from the plaintext port-8088 route; Caddy HTTPS is the supported path.
+- [x] Redact X16 query strings and never log passwords, Wi-Fi credentials, or bearer tokens.
 
 ## P1 — Core desktop completion
 
@@ -164,9 +168,9 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 ### 6. Notes
 
 - [x] Provide six saved slots with Add, Delete, scrolling, and a scrollbar.
-- [ ] Add titles and longer multiline note bodies.
-- [ ] Add New, Open, Save, Save As, Rename, and confirmed Delete.
-- [ ] Track dirty notes and warn before discarding changes.
+- [x] Add titles and 108-character multiline note bodies.
+- [x] Add New, Open/Edit, Save, Rename, and confirmed Delete for the slot model.
+- [x] Keep editing transactional so Cancel discards the uncommitted title/body.
 - [ ] Add word wrap, Find, and at least one level of Undo.
 - [ ] Add plain-text import/export with documented character conversion.
 - [ ] Decide whether Quick Notes and full Notes share one record model.
@@ -192,7 +196,8 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [x] Start blank; search, scroll, inspect, and delete saved contacts.
 - [x] Add and immediately save four complete user-created contact cards.
 - [x] Store name, role/organization, phone, email, and social handle.
-- [ ] Add Edit, Duplicate, and confirmed Delete workflows.
+- [x] Add transactional Edit and confirmed Delete workflows.
+- [ ] Add Duplicate.
 - [ ] Expand user-created capacity and add address and notes.
 - [ ] Sort alphabetically and preserve selection while filtering.
 - [ ] Search every visible field.
@@ -264,12 +269,13 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [x] Provide the X16-style public tester and RODDY master console.
 - [x] Bound ordinary alpha accounts to 8 friends, 4 groups, 32 group members,
       and 100 retained messages per conversation.
-- [ ] Add authenticated connect, reconnect, disconnect, and logout flows.
+- [x] Add authenticated account claim/sign-in and reconnect flows.
+- [ ] Add explicit logout, password change, recovery, and session/device revocation.
 - [ ] Add unread counts, background presence heartbeat, and message timestamps.
 - [ ] Add friend/group editing and ordering.
 - [ ] Prevent slow network calls from blocking mouse, clock, reminders, and redraws.
 - [ ] Migrate validated alpha records into the production database safely.
-- [ ] Support a saved hostname/HTTPS origin after the secure X16 transport is ready.
+- [x] Support a saved editable hostname and ZiModem HTTPS transport.
 - [ ] Replace the temporary `sslip.io` address with a branded domain.
 
 ### 13. Market Watch
@@ -385,7 +391,7 @@ V1 does not ship until:
 - Assembler: **64tass 1.60.3243**
 - Current ROM target: **Commander X16 r49**
 - Graphics: **320×240, 256-color VERA bitmap**
-- Persistent local state: **2 KB versioned `DCSTATE.BIN` image**
+- Persistent local state: **4 KB versioned `DCSTATE.BIN` image**
 - Network card: **TexElec Commander X16 Serial & ESP32 Network Card**
 - Network interface: **ZiModem AT commands over `$9FE0`, 115200 baud, RTS/CTS**
 - Window model: **one foreground app below the persistent system bar**

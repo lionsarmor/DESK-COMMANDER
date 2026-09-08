@@ -10,7 +10,8 @@ Group=deskcmd
 UMask=0077
 WorkingDirectory=/opt/deskcommander/alpha-server
 Environment=DESK_CHAT_PORT=8088
-Environment=DESK_PUBLIC_HOST=143.244.168.180
+Environment=DESK_CHAT_BIND=127.0.0.1
+Environment=DESK_PUBLIC_HOST=143-244-168-180.sslip.io
 Environment=DESK_CHAT_DATA=/var/lib/deskcommander/alpha-chat.json
 Environment=DESK_ADMIN_NAME=RODDY
 Environment=DESK_ADMIN_TOKEN_FILE=/etc/deskcommander/admin-token

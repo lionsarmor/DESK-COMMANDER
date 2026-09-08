@@ -23,19 +23,20 @@
       <canvas id="screen" width="320" height="240" aria-label="Desk Comms"></canvas>
       <input id="capture" class="capture" maxlength="96" autocomplete="off" aria-label="Message text">
     </div>
-    <div class="foot"><span>Same friends, groups, messages, limits, and presence as the physical X16 client.</span><span class="warning">Public alpha: test messages only. Usernames are not authenticated yet.</span></div>
+    <div class="foot"><span>Same friends, groups, messages, limits, and presence as the physical X16 client.</span><span class="warning">Authenticated account; traffic is protected by HTTPS.</span></div>
   </main>
 
   <section id="login" class="login">
     <div class="login-card">
       <div class="login-title">DESK COMMS</div>
       <div class="login-content">
-        <p>Choose a unique testing username. It is saved only in this browser. RODDY will be added automatically so you can message the project manager.</p>
+        <p>Sign in, or securely claim a new testing username. Use 8–24 printable characters for the password. RODDY is added automatically.</p>
         <input id="loginName" maxlength="16" autocomplete="nickname" placeholder="YOUR NAME">
-        <button id="connectButton">CONNECT</button>
+        <input id="loginPassword" type="password" minlength="8" maxlength="24" autocomplete="current-password" placeholder="PASSWORD" style="margin-top:10px;text-transform:none">
+        <button id="connectButton">SIGN IN / CREATE</button>
         <div id="loginStatus" class="login-status"></div>
       </div>
-      <div class="alpha">This compatibility alpha does not have passwords yet. Do not use a real password or private information.</div>
+      <div class="alpha">Passwords are salted and hashed on the server. The browser keeps only an expiring session token.</div>
     </div>
   </section>
 
@@ -66,7 +67,7 @@ const C={navy:'#001133',blue:'#0066aa',paper:'#ffffff',ink:'#000011',red:'#dd222
 // Faces deliberately use only the base yellow/black colors; angry shares red.
 C.face=C.gold;C.faceBlack='#000000';C.faceRed=C.red;
 const ADMIN='RODDY',MAX_FRIENDS=8,MAX_GROUPS=4;
-let user='',friends=[],groups=[],presence={},allUsers=[],selectedKind='',selectedName='',messages=[],friendScroll=0,groupScroll=0,messageOffset=0,status='READY',statusColor=C.blue,pressed='',busy=false,chooserOpen=false,emojiOpen=false;
+let user='',authToken=sessionStorage.deskCommsSession||'',friends=[],groups=[],presence={},allUsers=[],selectedKind='',selectedName='',messages=[],friendScroll=0,groupScroll=0,messageOffset=0,status='READY',statusColor=C.blue,pressed='',busy=false,chooserOpen=false,emojiOpen=false;
 let soundEnabled=localStorage.deskCommsSound!=='0',audioContext=null;
 
 function phoneMode(){return matchMedia('(max-width:700px) and (orientation:portrait)').matches}
@@ -126,12 +127,12 @@ function playClick(){tone(760,.025,.018)}
 function playSend(){tone(1050,.05,.026)}
 function playReceive(){tone(1380,.065,.028)}
 function toggleSound(){soundEnabled=!soundEnabled;localStorage.deskCommsSound=soundEnabled?'1':'0';draw();if(soundEnabled)playClick()}
-function api(path,options={}){return fetch(path,options).then(async response=>{const data=await response.json();if(!response.ok||data.ok===false)throw Error(data.error||`HTTP ${response.status}`);return data})}
+function api(path,options={}){options.headers={...(options.headers||{}),...(authToken?{Authorization:'Bearer '+authToken}:{})};return fetch(path,options).then(async response=>{const data=await response.json();if(!response.ok||data.ok===false)throw Error(data.error||`HTTP ${response.status}`);return data})}
 function post(action,body){return api('/api/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
 async function pulse(key,work){if(busy)return;pressed=key;draw();await new Promise(resolve=>setTimeout(resolve,90));pressed='';draw();try{busy=true;await work()}catch(error){setStatus(error.message,C.red)}finally{busy=false;draw()}}
 async function loadMessages(){if(!selectedName){messages=[];return}messages=await api(`/api/messages?user=${encodeURIComponent(user)}&kind=${selectedKind}&target=${encodeURIComponent(selectedName)}`);messageOffset=Math.min(messageOffset,Math.max(0,messages.length-visibleCount()))}
 async function sync(show=true){if(!user)return;if(show)setStatus('SYNCING...',C.gold);const priorChat=selectedKind+'|'+selectedName,priorMessages=JSON.stringify(messages);const [state]=await Promise.all([api('/api/state?user='+encodeURIComponent(user)),api('/api/heartbeat?user='+encodeURIComponent(user))]);friends=state.friends.slice(0,MAX_FRIENDS);groups=state.groups.slice(0,MAX_GROUPS);presence=state.presence||{};allUsers=state.allUsers||[];friendScroll=Math.min(friendScroll,Math.max(0,friends.length-4));groupScroll=Math.min(groupScroll,Math.max(0,groups.length-3));if(selectedName&&!((selectedKind==='F'?friends:groups).includes(selectedName))){selectedKind='';selectedName='';messages=[]}await loadMessages();const latest=messages[messages.length-1];if(selectedName&&priorChat===selectedKind+'|'+selectedName&&priorMessages!==JSON.stringify(messages)&&latest&&latest.from.toUpperCase()!==user.toUpperCase())playReceive();if(show)setStatus('SERVER ONLINE',C.green);draw()}
-async function connect(name){name=name.trim().toUpperCase().replace(/[^ -~]/g,'').slice(0,16);if(!name)throw Error('ENTER A USERNAME');if(name===ADMIN)throw Error('RODDY IS RESERVED');const account=await post('account',{user:name});user=name;localStorage.deskCommsUser=user;if(account.created)try{await post('friend',{user,target:ADMIN})}catch(error){status='CONNECTED - ADD RODDY';statusColor=C.gold}login.classList.add('hidden');await post('presence',{user,state:'online'});await sync(false);setStatus('SERVER ONLINE',C.green)}
+async function connect(name,password='',create=true){name=name.trim().toUpperCase().replace(/[^ -~]/g,'').slice(0,16);if(!name)throw Error('ENTER A USERNAME');if(name===ADMIN)throw Error('RODDY IS RESERVED');let account;if(authToken&&!password){account={created:false,user:name}}else{account=await api('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:name,password,create})});authToken=account.token;sessionStorage.deskCommsSession=authToken}user=account.user||name;localStorage.deskCommsUser=user;if(account.created)try{await post('friend',{user,target:ADMIN})}catch(error){status='CONNECTED - ADD RODDY';statusColor=C.gold}login.classList.add('hidden');await post('presence',{user,state:'online'});await sync(false);setStatus('SERVER ONLINE',C.green)}
 function ask(title,hint,max=16,value=''){const dialog=document.getElementById('entryDialog'),input=document.getElementById('dialogInput');document.getElementById('dialogTitle').textContent=title;document.getElementById('dialogHint').textContent=hint;input.maxLength=max;input.value=value;dialog.showModal();setTimeout(()=>input.focus(),30);return new Promise(resolve=>{dialog.onclose=()=>resolve(dialog.returnValue==='ok'?input.value.trim():'')})}
 function confirmRemove(title,message){const dialog=document.getElementById('confirmDialog');document.getElementById('confirmTitle').textContent=title;document.getElementById('confirmText').textContent=message;dialog.showModal();return new Promise(resolve=>{dialog.onclose=()=>resolve(dialog.returnValue==='ok')})}
 async function chooseConversation(kind,name){chooserOpen=false;selectedKind=kind;selectedName=name;messageOffset=0;capture.value='';capture.focus();setStatus('LOADING...',C.gold);await loadMessages();setStatus(messages.length?'CHAT LOADED':'CHAT READY',messages.length?C.green:C.blue)}
@@ -140,26 +141,26 @@ async function addFriend(){const known=allUsers.filter(name=>name!==user).slice(
 async function createGroup(){const name=(await ask('NEW GROUP NAME','Create or join a shared group.')).toUpperCase();if(!name)return;await post('group',{user,target:name});await sync(false);setStatus('GROUP SAVED',C.green)}
 async function addMember(){if(selectedKind!=='G')throw Error('SELECT A GROUP FIRST');const name=(await ask('ADD FRIEND TO GROUP','Enter one of your saved friend names.')).toUpperCase();if(!name)return;await post('group-member',{user,target:selectedName,member:name});setStatus('MEMBER ADDED',C.green)}
 async function removeSelected(){if(!selectedName)throw Error('SELECT FRIEND OR GROUP');const was=selectedName,kind=selectedKind,ok=await confirmRemove(kind==='F'?'REMOVE FRIEND?':'LEAVE GROUP?',kind==='F'?`Remove ${was} and delete your private history?`:`Leave ${was}? The group is deleted if you are its final member.`);if(!ok)return;await post(kind==='F'?'friend-delete':'group-leave',{user,target:was});selectedKind='';selectedName='';messages=[];await sync(false);setStatus('REMOVED',C.green)}
-async function changeUser(){const name=await ask('CHANGE USER','Choose a different public-alpha identity.',16,user);if(name)await connect(name)}
-async function showHost(){await ask('OFFICIAL HOST','This browser uses the official Desk Commander server automatically.',16,'143.244.168.180')}
+async function changeUser(){await logout()}
+async function showHost(){await ask('OFFICIAL HOST','Use this HTTPS hostname in Desk Commander on X16.',31,'143-244-168-180.sslip.io')}
 async function send(){const value=capture.value.trim();if(!selectedName)throw Error('SELECT A CHAT FIRST');if(!value)return;setStatus('SENDING...',C.gold);await post('message',{user,kind:selectedKind,target:selectedName,text:value.slice(0,96)});capture.value='';messageOffset=0;await loadMessages();playSend();setStatus('MESSAGE SENT',C.green);capture.focus()}
 function scrollMessages(direction){if(!selectedName)return;if(direction<0&&messageOffset<Math.max(0,messages.length-visibleCount()))messageOffset++;if(direction>0&&messageOffset>0)messageOffset--;draw()}
 function point(event){const bounds=canvas.getBoundingClientRect();return{x:(event.clientX-bounds.left)*320/bounds.width,y:(event.clientY-bounds.top)*canvas.height/bounds.height}}
-async function logout(){if(user)post('presence',{user,state:'offline'}).catch(()=>{});user='';friends=[];groups=[];messages=[];selectedKind='';selectedName='';localStorage.removeItem('deskCommsUser');document.getElementById('loginName').value='';login.classList.remove('hidden');draw()}
+async function logout(){if(user)post('presence',{user,state:'offline'}).catch(()=>{});user='';authToken='';sessionStorage.removeItem('deskCommsSession');friends=[];groups=[];messages=[];selectedKind='';selectedName='';localStorage.removeItem('deskCommsUser');document.getElementById('loginName').value='';document.getElementById('loginPassword').value='';login.classList.remove('hidden');draw()}
 let ignoreClickUntil=0,touchStartY=0;
 canvas.addEventListener('click',event=>{if(performance.now()<ignoreClickUntil)return;const{x,y}=point(event),m=ui();if(y<m.top&&x>=208&&x<236){toggleSound();return}playClick();if(emojiOpen){const g=emojiGeometry();g.faceY=g.faceY||g.y+56;if(x>=g.closeX&&x<g.closeX+16&&y>=g.y+5&&y<g.y+21){emojiOpen=false;capture.focus();draw()}else if(x>=g.faceX&&x<g.faceX+g.step*5&&y>=g.faceY&&y<g.faceY+g.boxH){const index=Math.floor((x-g.faceX)/g.step);if(index<5)chooseEmoji(['S','F','W','A','G'][index])}return}if(chooserOpen){const g=chooserGeometry();if(x>=g.closeX&&x<g.closeX+16&&y>=g.closeY&&y<g.closeY+16){chooserOpen=false;draw()}else if(x>=g.friendX&&x<g.friendX+g.friendW&&y>=g.friendY&&y<g.friendY+g.friendStep*friends.length){const i=Math.floor((y-g.friendY)/g.friendStep);if(i<friends.length)pulse('',()=>chooseConversation('F',friends[i]))}else if(x>=g.groupX&&x<g.groupX+g.groupW&&y>=g.groupY&&y<g.groupY+g.groupStep*groups.length){const i=Math.floor((y-g.groupY)/g.groupStep);if(i<groups.length)pulse('',()=>chooseConversation('G',groups[i]))}return}const buttonY=m.toolbarY+2,buttonH=m.toolbarH-4;if(y>=buttonY&&y<buttonY+buttonH){if(x>=2&&x<45)pulse('user',changeUser);else if(x>=47&&x<90)pulse('host',showHost);else if(x>=92&&x<127)pulse('friend',addFriend);else if(x>=129&&x<172)pulse('group',createGroup);else if(x>=174&&x<209)pulse('member',addMember);else if(x>=211&&x<246)pulse('delete',removeSelected);else if(x>=248&&x<291)pulse('sync',()=>sync(true));else if(x>=293&&x<318)logout();return}if(y>=m.chatY&&y<m.chatY+m.chatH&&x>=245&&x<260){scrollMessages(-1);return}if(y>=m.chatY&&y<m.chatY+m.chatH&&x>=260&&x<275){scrollMessages(1);return}if(x>=4&&x<(m.mobile?28:25)&&y>=m.chatY+2&&y<m.chatY+m.chatH){chooserOpen=true;capture.blur();draw();return}if(x>=m.emojiX&&x<m.emojiX+m.emojiW&&y>=m.composerY-1&&y<m.composerY+m.composerH+1){emojiOpen=true;capture.blur();draw();return}if(x>=m.sendX&&y>=m.composerY&&y<m.composerY+m.composerH){pulse('send',send);return}if(x>=m.fieldX&&x<m.fieldX+m.fieldW&&y>=m.composerY&&y<m.composerY+m.composerH)capture.focus()});
 canvas.addEventListener('wheel',event=>{event.preventDefault();if(!chooserOpen)scrollMessages(event.deltaY>0?1:-1)},{passive:false});
 canvas.addEventListener('touchstart',event=>{touchStartY=event.changedTouches[0].clientY},{passive:true});
 canvas.addEventListener('touchend',event=>{const distance=event.changedTouches[0].clientY-touchStartY;if(Math.abs(distance)>34&&!chooserOpen&&!emojiOpen){ignoreClickUntil=performance.now()+400;scrollMessages(distance>0?-1:1)}},{passive:true});
 capture.addEventListener('input',draw);capture.addEventListener('focus',draw);capture.addEventListener('blur',draw);capture.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();pulse('send',send)}});
-document.getElementById('connectButton').onclick=async()=>{const name=document.getElementById('loginName').value,box=document.getElementById('loginStatus');box.textContent='CONNECTING...';try{await connect(name);box.textContent=''}catch(error){box.textContent=error.message}};
-document.getElementById('loginName').addEventListener('keydown',event=>{if(event.key==='Enter')document.getElementById('connectButton').click()});
+document.getElementById('connectButton').onclick=async()=>{const name=document.getElementById('loginName').value,password=document.getElementById('loginPassword').value,box=document.getElementById('loginStatus');box.textContent='CONNECTING...';try{await connect(name,password,true);document.getElementById('loginPassword').value='';box.textContent=''}catch(error){box.textContent=error.message}};
+for(const id of ['loginName','loginPassword'])document.getElementById(id).addEventListener('keydown',event=>{if(event.key==='Enter')document.getElementById('connectButton').click()});
 document.getElementById('dialogInput').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();document.getElementById('entryDialog').close('ok')}});
 document.addEventListener('click',event=>{if(event.target.closest('button'))playClick()});
 document.addEventListener('visibilitychange',()=>{if(!user)return;post('presence',{user,state:document.hidden?'away':'online'}).catch(()=>{})});
 setInterval(()=>{draw();if(user&&!busy&&!document.hidden)sync(false).catch(()=>setStatus('SERVER OFFLINE',C.red))},5000);
 let layoutWidth=innerWidth,layoutPhone=phoneMode();addEventListener('resize',()=>{const changed=Math.abs(innerWidth-layoutWidth)>2||phoneMode()!==layoutPhone;if(!changed)return;layoutWidth=innerWidth;layoutPhone=phoneMode();requestAnimationFrame(configureCanvas)});
-requestAnimationFrame(configureCanvas);const saved=localStorage.deskCommsUser;if(saved){document.getElementById('loginName').value=saved;connect(saved).catch(error=>{document.getElementById('loginStatus').textContent=error.message})}
+requestAnimationFrame(configureCanvas);const saved=localStorage.deskCommsUser;if(saved){document.getElementById('loginName').value=saved;if(authToken)connect(saved,'',false).catch(error=>{authToken='';sessionStorage.removeItem('deskCommsSession');document.getElementById('loginStatus').textContent='SESSION EXPIRED - ENTER PASSWORD'})}
 </script>
 </body>
 </html>
