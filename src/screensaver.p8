@@ -2,33 +2,55 @@
 %import input
 %import syslib
 %import theme
+%import fridge_art
 
-; -----------------------------------------------------------------------------
-; DESK COMMANDER Deep Space screensaver
-; -----------------------------------------------------------------------------
-;
-; Bank 18 owns only the full-screen animation. Compact desktop card artwork
-; lives in desktop_extras so this bank stays small and easy to maintain.
-
+; Deep Space: parallax stars and a shiny, quietly drifting refrigerator.
+; Sprite 1 owns the fridge. Moving its coordinates never erases the artwork
+; or punches holes in the stars. VRAM $19000-$197FF is separate from the
+; cursor ($13000), editor ($14000), saved state ($16000) and Comms ($17000).
 screensaver {
     const ubyte STAR_COUNT = 44
-    const ubyte SPACE_BLACK = 0
-
     uword[STAR_COUNT] star_x
     ubyte[STAR_COUNT] star_y
     ubyte[STAR_COUNT] star_speed
     ubyte frame
-    ubyte orb_frame
-    uword orb_x
-    ubyte orb_y
-    bool orb_moving_right
-    bool orb_moving_down
+    ubyte drift_frame
+    uword fridge_x
+    ubyte fridge_y
+    bool moving_right
+    bool moving_down
 
-    sub prepare_graphics() {
-        ; A loadable library does not run the main PRG's BSS initializer. Always
-        ; force ordinary replacement drawing so random bank RAM can never turn
-        ; colors into the XOR/inverted palette effect fixed in the emoji bank.
-        gfx_lores.eor_mode = false
+    sub prepare_fridge() {
+        cx16.vpoke(1, $fc0e, 0)     ; hide sprite 1 during upload
+        uword address
+        for address in $9000 to $97ff
+            cx16.vpoke(1, address, 0)
+        ubyte index
+        for index in 0 to len(fridge_art.rectangles) - 1 step 5 {
+            ubyte y
+            ubyte x
+            for y in 0 to fridge_art.rectangles[index + 3] - 1 {
+                for x in 0 to fridge_art.rectangles[index + 2] - 1 {
+                    address = $9000 +
+                        (fridge_art.rectangles[index + 1] as uword + y) * 32 +
+                        fridge_art.rectangles[index] + x
+                    cx16.vpoke(1, address, fridge_art.rectangles[index + 4])
+                }
+            }
+        }
+        ; $19000 / 32 = $0C80. 8bpp sprite, 32 wide by 64 high.
+        cx16.vpoke(1, $fc08, $80)
+        cx16.vpoke(1, $fc09, $8c)
+        cx16.vpoke(1, $fc0f, $e0)
+        position_fridge()
+        cx16.vpoke(1, $fc0e, $0c)
+    }
+
+    sub position_fridge() {
+        cx16.vpoke(1, $fc0a, lsb(fridge_x))
+        cx16.vpoke(1, $fc0b, msb(fridge_x))
+        cx16.vpoke(1, $fc0c, fridge_y)
+        cx16.vpoke(1, $fc0d, 0)
     }
 
     sub initialize_stars() {
@@ -39,30 +61,17 @@ screensaver {
             star_speed[index] = index % 3 + 1
         }
         frame = 0
-        orb_frame = 0
-        orb_x = 258
-        orb_y = 96
-        orb_moving_right = true
-        orb_moving_down = true
-    }
-
-    sub star_crosses_orb(ubyte index) -> bool {
-        ; Stars crossing the moving orb are hidden behind it. This prevents a
-        ; star's erase pass from punching a one-frame black hole in the face.
-        return star_x[index] >= orb_x - 16 and
-               star_x[index] <= orb_x + 16 and
-               star_y[index] >= orb_y - 16 and
-               star_y[index] <= orb_y + 16
+        drift_frame = 0
+        fridge_x = 242
+        fridge_y = 83
+        moving_right = true
+        moving_down = true
     }
 
     sub draw_star(ubyte index, ubyte color) {
-        if star_crosses_orb(index)
-            return
-        gfx_lores.fillrect(star_x[index], star_y[index],
-                           star_speed[index], 1, color)
+        gfx_lores.fillrect(star_x[index], star_y[index], star_speed[index], 1, color)
         if star_speed[index] == 3
-            gfx_lores.fillrect(star_x[index] + 1, star_y[index] - 1,
-                               1, 3, color)
+            gfx_lores.fillrect(star_x[index] + 1, star_y[index] - 1, 1, 3, color)
     }
 
     sub star_color(ubyte index) -> ubyte {
@@ -73,99 +82,64 @@ screensaver {
         }
     }
 
-    sub draw_orb() {
-        ; Black rim, green energy, and an offset glint keep the drifting orb
-        ; bold and cartoony instead of looking like another star.
-        gfx_lores.disc(orb_x, orb_y, 13, theme.INK)
-        gfx_lores.disc(orb_x, orb_y, 10, theme.GREEN)
-        gfx_lores.disc(orb_x - 3, orb_y - 3, 5, theme.SOFT_BLUE)
-    }
-
-    sub move_orb() {
-        uword old_x = orb_x
-        ubyte old_y = orb_y
-
-        if orb_moving_right {
-            orb_x++
-            if orb_x >= 270
-                orb_moving_right = false
+    sub move_fridge() {
+        if moving_right {
+            fridge_x++
+            if fridge_x >= 266
+                moving_right = false
         } else {
-            orb_x--
-            if orb_x <= 246
-                orb_moving_right = true
+            fridge_x--
+            if fridge_x <= 218
+                moving_right = true
         }
-
-        if orb_moving_down {
-            orb_y++
-            if orb_y >= 104
-                orb_moving_down = false
+        if moving_down {
+            fridge_y++
+            if fridge_y >= 108
+                moving_down = false
         } else {
-            orb_y--
-            if orb_y <= 88
-                orb_moving_down = true
+            fridge_y--
+            if fridge_y <= 66
+                moving_down = true
         }
-
-        ; Paint the new position before removing the old trailing edge. The
-        ; orb therefore remains visible throughout the update instead of
-        ; blinking through a fully-erased frame.
-        draw_orb()
-        if orb_x > old_x
-            gfx_lores.fillrect(old_x - 13, old_y - 13, 1, 27, SPACE_BLACK)
-        else
-            gfx_lores.fillrect(old_x + 13, old_y - 13, 1, 27, SPACE_BLACK)
-
-        if orb_y > old_y
-            gfx_lores.fillrect(old_x - 13, old_y - 13, 27, 1, SPACE_BLACK)
-        else
-            gfx_lores.fillrect(old_x - 13, old_y + 13, 27, 1, SPACE_BLACK)
-    }
-
-    sub draw_space_scene() {
-        ubyte index
-        gfx_lores.clear_screen(SPACE_BLACK)
-        for index in 0 to STAR_COUNT - 1
-            draw_star(index, star_color(index))
-        draw_orb()
+        position_fridge()
     }
 
     sub animate_stars() {
         ubyte index
         for index in 0 to STAR_COUNT - 1 {
-            draw_star(index, SPACE_BLACK)
-
+            draw_star(index, 0)
             if star_x[index] <= star_speed[index] {
                 star_x[index] = 316
-                star_y[index] += 47
-                if star_y[index] > 235
-                    star_y[index] -= 232
+                ; Wrap before adding, avoiding 8-bit overflow to y=0 and
+                ; a cross-shaped star drawing above the framebuffer.
+                if star_y[index] >= 189
+                    star_y[index] -= 185
+                else
+                    star_y[index] += 47
             } else
                 star_x[index] -= star_speed[index]
-
             draw_star(index, star_color(index))
         }
     }
 
     sub open() {
-        prepare_graphics()
+        gfx_lores.eor_mode = false
         initialize_stars()
-
-        ; Keep mouse tracking alive for exit clicks, but hide sprite zero while
-        ; the saver is active. desktop.show() restores the chosen pointer.
         input.enable_mouse()
         cx16.vpoke_mask(1, $fc06, $f3, 0)
-        draw_space_scene()
+        gfx_lores.clear_screen(0)
+        prepare_fridge()
+        ubyte index
+        for index in 0 to STAR_COUNT - 1
+            draw_star(index, star_color(index))
 
         bool finished = false
-        ; Opening the saver with the mouse leaves that button held for a few
-        ; frames. Do not arm mouse-to-exit until the launch click is released.
         bool mouse_exit_armed = input.buttons == 0
         do {
             sys.waitvsync()
             input.poll()
-
             if input.key != 0
                 finished = true
-
             if mouse_exit_armed {
                 if input.buttons != 0
                     finished = true
@@ -177,17 +151,14 @@ screensaver {
                 frame = 0
                 animate_stars()
             }
-
-            ; Seven or eight tiny steps per second produce a calm drift.
-            orb_frame++
-            if orb_frame == 8 {
-                orb_frame = 0
-                move_orb()
+            drift_frame++
+            if drift_frame == 8 {
+                drift_frame = 0
+                move_fridge()
             }
         } until finished
 
-        ; Consume the exit key. The desktop also reseeds the physical mouse
-        ; state, preventing the click that exits from opening another app.
+        cx16.vpoke(1, $fc0e, 0)     ; never leave a fridge over another app
         input.key = 0
     }
 }

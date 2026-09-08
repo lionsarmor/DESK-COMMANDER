@@ -12,7 +12,7 @@
 ; double-click timing and drag capture here without rewriting every screen.
 
 input {
-    const ubyte MOUSE_PRESET_COUNT = 3
+    const ubyte MOUSE_PRESET_COUNT = 5
 
     ; Canonical 16x16 pointer planes. Each row uses two bytes, left to right.
     ; MASK says which pixels are visible. FACE separates the colored center
@@ -50,6 +50,9 @@ input {
     }
 
     sub enable_mouse() {
+        ; Overlay banks have private variables; the saved bytes are shared.
+        mouse_preset = state_data.read(state_data.MOUSE_PRESET)
+        theme.current_package = state_data.read(state_data.THEME_PACKAGE)
         ; Shape 1 is the default Commander X16 pointer. mouse_config2 also reads
         ; the current display dimensions, so call this after changing modes.
         cx16.mouse_config2(1)
@@ -79,12 +82,24 @@ input {
     }
 
     sub apply_mouse_preset() {
+        if mouse_preset >= MOUSE_PRESET_COUNT
+            mouse_preset = 0
         ; Hide sprite 0 while changing it. Mouse tracking stays enabled and
         ; the pointer position does not jump back to the center of the screen.
         cx16.vpoke_mask(1, $fc06, $f3, 0)
 
         ; The KERNAL cursor is an eight-bit sprite at VRAM $1:3000.
         cx16.vpoke_mask(1, $fc01, $7f, $80)
+
+        ; ROM r47+ supports a real sprite hotspot. The crosshair's center,
+        ; rather than its upper-left corner, must be the point that clicks.
+        cx16.r0 = 0
+        cx16.r1 = 0
+        if mouse_preset == 4 {
+            cx16.r0 = $fff9
+            cx16.r1 = $fff9
+        }
+        set_cursor_hotspot()
 
         ; The compact blue preset really is 8x8. The other two are 16x16.
         ubyte sprite_size = 16
@@ -111,6 +126,16 @@ input {
     }
 
     sub cursor_pixel(ubyte x, ubyte y) -> ubyte {
+        if mouse_preset == 4 {
+            ; A 13-pixel white cross with a one-pixel black silhouette.
+            if (x == 7 and y >= 1 and y <= 13) or
+               (y == 7 and x >= 1 and x <= 13)
+                return theme.MOUSE_WHITE
+            if (x >= 6 and x <= 8 and y <= 14) or
+               (y >= 6 and y <= 8 and x <= 14)
+                return theme.MOUSE_BLACK
+            return 0
+        }
         ubyte pixel_bit = pixel_bits[x % 8]
         ubyte mask_byte
         ubyte face_byte
@@ -127,6 +152,13 @@ input {
         if mask_byte & pixel_bit == 0
             return 0
 
+        if mouse_preset == 3 {
+            ; The large pointer plane traces its edge; fill the inside white.
+            if face_byte & pixel_bit != 0
+                return theme.MOUSE_BLACK
+            return theme.MOUSE_WHITE
+        }
+
         ; Midnight uses a light outside edge so every pointer remains visible
         ; over the dark theme. The colored face stays blue, red, or black.
         if face_byte & pixel_bit == 0 {
@@ -139,6 +171,14 @@ input {
         if mouse_preset == 2
             return 16
         return theme.MOUSE_RED
+    }
+
+    asmsub set_cursor_hotspot() clobbers(A, X, Y) {
+        %asm {{
+            clc
+            lda #3
+            jmp $feab              ; mouse_sprite_offset, r0/r1 signed offsets
+        }}
     }
 
     sub poll() {

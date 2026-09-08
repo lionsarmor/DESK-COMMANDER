@@ -57,7 +57,7 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 | Calculator | ✅ | Mouse and keyboard arithmetic, decimals, backspace, and divide-by-zero handling |
 | File Manager | 🟡 | Real device-8 browsing, file/folder creation, rename, move, delete, text open, and PRG launch |
 | Text Editor ++ | 🟡 | 2 KB multiline editor, mouse placement, Save, Save As, and dirty-file warning |
-| Deep Space Screensaver | ✅ | Full-screen parallax stars and a gently drifting, flicker-free green orb with instant keyboard/mouse exit |
+| Deep Space Screensaver | ✅ | Parallax stars and a shiny cartoon refrigerator hardware sprite, with instant keyboard/mouse exit |
 | Network Setup | 🟡 | Real `$9FE0` UART detection, ZiModem, scrollable scan, join, IP status, disconnect, and connection test |
 | Comms | 🟡 | Password account, HTTPS transport, saved user/host credential, friends, groups, messages, polling, presence, sounds, and five emoji |
 | Browser chat | 🟡 | Authenticated X16-style tester with expiring sessions plus protected RODDY manager console |
@@ -239,6 +239,12 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [ ] Explain DOS and media failures in plain language.
 
 ### 10. Calculator and shared accessories
+
+- [x] Add saved Phosphor/Lunar palettes and white-arrow/precision-crosshair cursors.
+- [x] Keep chat/emoji colors fixed; preserve event/status colors in new themes.
+- [x] Replace the orb with shared cartoon fridge artwork on the tile and a
+      hardware sprite in the saver; move without erasing the image.
+- [ ] Verify all five cursor hotspots and saver exit on physical hardware.
 
 - [x] Implement basic arithmetic, decimals, keyboard entry, and mouse entry.
 - [ ] Add `MC`, `MR`, `M+`, and `M-`.

@@ -29,7 +29,9 @@ theme {
     const ubyte CHAT_ORANGE = 45
     const ubyte CHAT_ROSE = 46
     const ubyte CHAT_AZURE = 47
-    const ubyte PACKAGE_COUNT = 3
+    const ubyte MOUSE_WHITE = 48
+    const ubyte MOUSE_BLACK = 49
+    const ubyte PACKAGE_COUNT = 5
 
     ubyte current_package
 
@@ -39,10 +41,14 @@ theme {
     }
 
     sub install_palette() {
+        if current_package >= PACKAGE_COUNT
+            current_package = 0
         when current_package {
             0 -> install_commander_palette()
             1 -> install_amber_palette()
             2 -> install_midnight_palette()
+            3 -> install_phosphor_palette()
+            4 -> install_lunar_palette()
         }
         install_mouse_colors()
         install_chat_colors()
@@ -95,6 +101,33 @@ theme {
     sub install_mouse_colors() {
         palette.set_color(MOUSE_BLUE, $18f)
         palette.set_color(MOUSE_RED, $f33)
+        palette.set_color(MOUSE_WHITE, $fff)
+        palette.set_color(MOUSE_BLACK, $000)
+    }
+
+    sub install_phosphor_palette() {
+        ; Light work surfaces preserve the UI's existing ink/paper contrast.
+        ; Charcoal desktop, terminal-green controls, soft white panels.
+        palette.set_color(NAVY, $122)
+        palette.set_color(BLUE, $163)
+        palette.set_color(PAPER, $eed)
+        palette.set_color(INK, $112)
+        palette.set_color(RED, $d22)
+        palette.set_color(SOFT_BLUE, $597)
+        palette.set_color(GREEN, $197)
+        palette.set_color(GOLD, $ec2)
+    }
+
+    sub install_lunar_palette() {
+        ; Navy foundation, silver panels, and readable deep-cyan controls.
+        palette.set_color(NAVY, $012)
+        palette.set_color(BLUE, $057)
+        palette.set_color(PAPER, $ccd)
+        palette.set_color(INK, $012)
+        palette.set_color(RED, $d22)
+        palette.set_color(SOFT_BLUE, $5cd)
+        palette.set_color(GREEN, $197)
+        palette.set_color(GOLD, $ec2)
     }
 
     sub install_chat_colors() {

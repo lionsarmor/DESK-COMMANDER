@@ -1,6 +1,7 @@
 %import gfx_lores
 %import market_data
 %import theme
+%import fridge_art
 
 ; -----------------------------------------------------------------------------
 ; Compact desktop Market Watch and Screensaver cards
@@ -83,9 +84,13 @@ desktop_extras {
         gfx_lores.fillrect(286, 162, 2, 2, theme.SOFT_BLUE)
         gfx_lores.fillrect(294, 181, 1, 1, theme.PAPER)
 
-        ; Match the quiet full-screen scene: one bright orb in deep space.
-        gfx_lores.disc(274, 182, 13, theme.INK)
-        gfx_lores.disc(274, 182, 10, theme.GREEN)
-        gfx_lores.disc(271, 179, 5, theme.SOFT_BLUE)
+        ; Preview the exact same chrome refrigerator used by the saver.
+        ubyte index
+        for index in 0 to len(fridge_art.rectangles) - 1 step 5 {
+            gfx_lores.fillrect(258 + fridge_art.rectangles[index] as uword,
+                160 + fridge_art.rectangles[index + 1],
+                fridge_art.rectangles[index + 2], fridge_art.rectangles[index + 3],
+                fridge_art.rectangles[index + 4])
+        }
     }
 }

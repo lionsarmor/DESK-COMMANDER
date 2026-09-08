@@ -46,7 +46,8 @@ distinctly retro.
 - **✍️ Text Editor ++:** edit multiline text with mouse placement, Save, Save
   As, and an unsaved-work warning.
 - **🌌 Deep Space Screensaver:** watch a clean parallax starfield surrounding
-  a gently drifting, flicker-free green orb; leave with any key or mouse click.
+  a shiny cartoon refrigerator with chrome handles and a friendly face. Its
+  hardware sprite drifts without erase/redraw blinking; leave with any key or click.
 
 ### Connected applications
 
@@ -78,7 +79,7 @@ distinctly retro.
 | Calculator | Arithmetic, decimals, backspace, divide-by-zero handling | Memory keys and final edge-case testing |
 | File Manager | Real device-8 browsing, file/folder operations, text open, and protected PRG/AUTOBOOT launch | Copy, destination browser, filters, richer error handling |
 | Text Editor ++ | Multiline editing, Save, Save As, mouse placement | Find, clipboard, undo, larger documents, safer replacement saves |
-| Screensaver | Full-screen parallax stars and a gently drifting, flicker-free green orb; instant keyboard/mouse exit | Additional scenes and optional idle timer |
+| Screensaver | Parallax stars and a drifting chrome cartoon refrigerator; instant keyboard/mouse exit | Additional scenes and optional idle timer |
 | Settings | Persistent theme, cursor, sound, and clock; Network and About | Keyboard focus, Restore Defaults, storage tools decision |
 | Network Setup | Physical card detection, scan, join, IP status, disconnect, connection test | Recovery modes, richer errors, sustained-transfer testing |
 | Comms | Password-authenticated direct/group chat over HTTPS, saved credentials, expiring browser sessions, presence, sounds, emoji | Recovery, credential rotation, certificate pinning, unread state, moderation |
@@ -197,6 +198,14 @@ An SD/HostFS directory's generic `PRG` type is not enough to treat text or
 `.BIN` assets as executable; use the actual `.PRG`/`.X16` filename suffix.
 
 ### Keyboard and mouse
+
+In **Settings**, click **Theme** to cycle Commander, Amber, Midnight, Phosphor
+(`PHOS`: charcoal/green/soft white), and Lunar (navy/silver/cyan). Click **Mouse**
+to cycle small blue, large red, black, high-contrast white arrow, and precision
+crosshair. The crosshair's center is its click point. Both selections save to
+SD immediately; existing saved choices retain their original numbers.
+Chat/emoji colors stay fixed, and the new themes keep red, teal, and gold
+event/status colors distinct. These options do not change app layouts.
 
 - **Desktop:** click an app, or use arrows and `Enter`.
 - **Close:** use the visible red `X` or press `Esc`.
@@ -406,6 +415,9 @@ Run `python tools/test-files.py` in the same environment for file routing,
 safe text limits, full filenames, and bounded DOS commands. Run
 `python3 tools/test-file-launch.py` for real-ROM emulator checks of BASIC,
 SYS, AUTOBOOT, and missing/invalid program handling (no SD card required).
+Run `python tools/test-styles.py` for palette/preset persistence checks, cursor
+pixels, and refrigerator sprite bounds/movement. It also writes a pixel preview
+to `/tmp/desk-style-preview.png` for inspection.
 
 Run `python tools/test-calendar.py` for compiled calendar text-limit,
 storage-boundary, wrapping, and dashboard-date hitbox checks.

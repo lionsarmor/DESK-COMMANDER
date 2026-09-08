@@ -59,7 +59,7 @@ THEME_DEPS   := $(SOURCE_DIR)/theme.p8 $(STATE_DEPS)
 INPUT_DEPS   := $(SOURCE_DIR)/input.p8 $(SOURCE_DIR)/preferences.p8 $(THEME_DEPS)
 CORE_DEPS    := $(SOURCE_DIR)/main.p8 $(SOURCE_DIR)/desktop.p8 $(SOURCE_DIR)/splash.p8 \
 	$(SOURCE_DIR)/font5x7.p8 $(SOURCE_DIR)/calendar_app.p8 $(SOURCE_DIR)/market_data.p8 \
-	$(SOURCE_DIR)/desktop_extras.p8 \
+	$(SOURCE_DIR)/desktop_extras.p8 $(SOURCE_DIR)/fridge_art.p8 \
 	$(SOURCE_DIR)/appmeta.p8 $(INPUT_DEPS)
 FILE_DEPS    := $(SOURCE_DIR)/app_mailbox.p8 $(INPUT_DEPS)
 NET_DEPS     := $(SOURCE_DIR)/network_driver.p8 $(SOURCE_DIR)/network_mailbox.p8
@@ -272,7 +272,7 @@ $(COMMS_EMOJI): $(SOURCE_DIR)/comms_emoji_overlay.p8 $(SOURCE_DIR)/comms_emoji.p
 		"$(SOURCE_DIR)/comms_emoji_overlay.p8"
 	@cp "$(BUILD_DIR)/comms_emoji_overlay.bin" "$(COMMS_EMOJI)"
 
-$(SCREEN_SAVER): $(SOURCE_DIR)/screensaver_overlay.p8 $(SOURCE_DIR)/screensaver.p8 $(INPUT_DEPS) | $(BUILD_DIR)
+$(SCREEN_SAVER): $(SOURCE_DIR)/screensaver_overlay.p8 $(SOURCE_DIR)/screensaver.p8 $(SOURCE_DIR)/fridge_art.p8 $(INPUT_DEPS) | $(BUILD_DIR)
 	@echo "Building DEEP SPACE screensaver..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \

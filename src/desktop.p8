@@ -857,6 +857,8 @@ desktop {
             0 -> gfx_lores.text(x + 20, y + 25, theme.INK, iso:"X16")
             1 -> gfx_lores.text(x + 12, y + 25, theme.INK, iso:"AMBER")
             2 -> gfx_lores.text(x + 12, y + 25, theme.INK, iso:"NIGHT")
+            3 -> gfx_lores.text(x + 16, y + 25, theme.INK, iso:"PHOS")
+            4 -> gfx_lores.text(x + 12, y + 25, theme.INK, iso:"LUNAR")
         }
     }
 
@@ -869,6 +871,8 @@ desktop {
             accent = theme.MOUSE_BLUE
         else if input.mouse_preset == 1
             accent = theme.MOUSE_RED
+        else if input.mouse_preset >= 3
+            accent = theme.MOUSE_WHITE
 
         ; Cable and offset shadow give the tiny symbol some depth.
         gfx_lores.line(x + 32, y + 3, x + 32, y + 7, theme.INK)
@@ -883,6 +887,10 @@ desktop {
         gfx_lores.horizontal_line(x + 28, y + 16, 13, theme.BLUE)
         gfx_lores.line(x + 34, y + 10, x + 34, y + 16, theme.BLUE)
         gfx_lores.fillrect(x + 32, y + 11, 4, 7, accent)
+        if input.mouse_preset == 4 {
+            gfx_lores.horizontal_line(x + 30, y + 14, 8, theme.INK)
+            gfx_lores.line(x + 34, y + 10, x + 34, y + 18, theme.INK)
+        }
     }
 
     sub draw_sound_option_icon(uword x, ubyte y) {
