@@ -30,6 +30,7 @@ file_manager {
     extsub @bank 5 $a009 = rename_dialog() clobbers(A, X, Y)
     extsub @bank 5 $a00c = move_dialog() clobbers(A, X, Y)
     extsub @bank 5 $a00f = delete_dialog() clobbers(A, X, Y)
+    extsub @bank 5 $a012 = change_directory() clobbers(A, X, Y)
 
     ; Bank 6: Text Editor ++ jump table.
     extsub @bank 6 $a000 = initialize_text_editor() clobbers(A, X, Y)
@@ -38,6 +39,7 @@ file_manager {
     ; Bank 14: one-way handoff from Desk Commander to another X16 PRG.
     extsub @bank 14 $a000 = initialize_program_launcher() clobbers(A, X, Y)
     extsub @bank 14 $a003 = launch_program() clobbers(X, Y) -> bool @A
+    extsub @bank 14 $a006 = validate_text() clobbers(X, Y) -> bool @A
 
     ; Five full CMDR-DOS names are retained. Display text is shortened only in
     ; the scratch buffer, so file operations always receive the real name.
@@ -166,8 +168,9 @@ check_x16:
                              name_for_row(entry_count), NAME_SIZE - 1)
                 if diskio.list_filetype == "dir"
                     directory_flags |= 1 << entry_count
-                else if diskio.list_filetype == "prg" or
-                        filename_is_program(diskio.list_filename)
+                ; HostFS can label text and assets PRG too. Only explicit
+                ; executable suffixes opt into the one-way program handoff.
+                else if filename_is_program(diskio.list_filename)
                     program_flags |= 1 << entry_count
                 entry_count++
             }
@@ -267,8 +270,14 @@ check_x16:
             MESSAGE_EMPTY -> gfx_lores.text(32, 168, theme.SOFT_BLUE,
                                              iso:"EMPTY FOLDER")
             MESSAGE_ERROR -> {
-                gfx_lores.text(32, 168, theme.RED, iso:"DISK ERROR")
-                gfx_lores.text(122, 168, theme.RED, conv.str_ub(last_dos_code))
+                if last_dos_code == 254
+                    gfx_lores.text(32, 168, theme.RED, iso:"NEEDS BASIC LOADER")
+                else if last_dos_code == 253
+                    gfx_lores.text(32, 168, theme.RED, iso:"NOT TEXT OR OVER 2K")
+                else {
+                    gfx_lores.text(32, 168, theme.RED, iso:"DISK ERROR")
+                    gfx_lores.text(122, 168, theme.RED, conv.str_ub(last_dos_code))
+                }
             }
             MESSAGE_APP_MISSING -> gfx_lores.text(32, 168, theme.RED,
                                                    iso:"APP FILE IS MISSING")
@@ -417,12 +426,15 @@ check_x16:
     }
 
     sub open_selected() {
+        double_click_frames = 0
+        input.key = 0
         if selected_row == NO_SELECTION
             return
 
         if row_is_directory(selected_row) {
-            diskio.chdir(name_for_row(selected_row))
-            last_dos_code = diskio.status_code()
+            selected_to_mailbox()
+            change_directory()
+            last_dos_code = app_mailbox.dos_code
             if last_dos_code < 20
                 folder_depth++
             page_start = 0
@@ -434,21 +446,27 @@ check_x16:
         }
 
         selected_to_mailbox()
+        initialize_program_launcher()
         if row_is_program(selected_row) {
             ; Launchable X16 PRGs are handed to a tiny dedicated bank. A
             ; successful launch never returns; failure redraws File Manager.
             diskio.lf_end_list()
-            initialize_program_launcher()
             if launch_program()
                 return
 
-            ; A load error leaves Desk Commander intact, so return to Files.
+            ; Only preflight failures return: the desktop is still intact.
             message = MESSAGE_ERROR
-            last_dos_code = diskio.status_code()
+            last_dos_code = app_mailbox.dos_code
             draw_window()
             return
         }
 
+        if not validate_text() {
+            message = MESSAGE_ERROR
+            last_dos_code = app_mailbox.dos_code
+            draw_window()
+            return
+        }
         initialize_text_editor()
         open_text_editor()
         load_directory_page()

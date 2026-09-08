@@ -32,7 +32,7 @@ text_editor {
     ubyte[65] io_buffer
     ubyte[35] line_buffer
     ubyte[29] display_name
-    ubyte[51] name_buffer
+    ubyte[53] name_buffer
 
     sub text_at(uword index) -> ubyte {
         return cx16.vpeek(BUFFER_BANK, BUFFER_ADDRESS + index)
@@ -96,7 +96,7 @@ text_editor {
                 set_text_at(text_length, character)
                 text_length++
             }
-        } until bytes_read < 64 or text_length == MAX_TEXT
+        } until bytes_read < 64 or status_message == STATUS_TRUNCATED
 
         diskio.f_close()
         cursor_index = text_length
@@ -106,7 +106,7 @@ text_editor {
     sub make_save_name(str filename) {
         name_buffer[0] = '@'
         name_buffer[1] = ':'
-        copy_limited(filename, &name_buffer + 2, 48)
+        copy_limited(filename, &name_buffer + 2, 50)
     }
 
     sub save_document() {

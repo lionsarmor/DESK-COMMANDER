@@ -21,6 +21,11 @@ calendar_app {
     const ubyte EVENT_PERSONAL = 3
     const ubyte NO_EVENT_SLOT = 255
     const ubyte MAX_EVENTS = 24
+    const ubyte MAX_EVENT_TEXT = 47
+    ; Keep the original 19 title bytes in place. Each event gains 29 bytes
+    ; (including its terminator) in unused space after the Directory records.
+    const uword TEXT_EXTRA = state_data.BASE + $0cd0
+    const uword TEXT_MARKER = state_data.BASE + $0f88
 
     bool initialized
     ubyte current_month
@@ -32,9 +37,10 @@ calendar_app {
     ubyte[24] event_days
     ubyte[24] event_types
     uword[24] event_years
-    ; Titles live directly in the shared VERA state image: twenty bytes per
-    ; event, nineteen visible characters plus the zero ending.
-    ubyte[20] event_title_buffer
+    ; Text lives in the shared VERA state image. The original 19 characters
+    ; remain at their old addresses; the extension raises the limit to 47.
+    ; This small buffer holds only one displayed line, not a full record.
+    ubyte[23] event_title_buffer
 
     sub load_state() {
         state_data.transfer_memory_5 = &current_month
@@ -66,6 +72,13 @@ calendar_app {
         if initialized
             return
 
+        if state_data.read(TEXT_MARKER) != $a5 {
+            uword offset
+            for offset in 0 to 695
+                state_data.write(TEXT_EXTRA + offset, 0)
+            state_data.write(TEXT_MARKER, $a5)
+        }
+
         if state_data.read(state_data.CALENDAR) == $a5
             load_state()
         else {
@@ -79,10 +92,10 @@ calendar_app {
             create_sample_event(1, 12, EVENT_TASK, iso:"FINISH ROADMAP")
             create_sample_event(2, 21, EVENT_PERSONAL, iso:"DINNER WITH ALEX")
             create_sample_event(3, 30, EVENT_APPOINTMENT, iso:"PROJECT MEETING")
-            save_state()
         }
 
         initialized = true
+        save_state()
     }
 
     sub create_sample_event(ubyte slot, ubyte day, ubyte event_type, str title) {
@@ -97,24 +110,29 @@ calendar_app {
         return state_data.CALENDAR + 126 + (slot as uword) * 20
     }
 
+    sub text_address(ubyte slot, ubyte index) -> uword {
+        if index < 19
+            return title_for_slot(slot) + index
+        return TEXT_EXTRA + (slot as uword) * 29 + index - 19
+    }
+
     ; Bank switching stays inside these tiny helpers. Code and ordinary app
     ; variables remain visible in bank 0 everywhere else.
     sub copy_event_title(ubyte slot, str source) {
-        uword destination = title_for_slot(slot)
         ubyte index = 0
 
-        while source[index] != 0 and index < 19 {
-            state_data.write(destination + index, source[index])
+        while source[index] != 0 and index < MAX_EVENT_TEXT {
+            set_event_title_character(slot, index, source[index])
             index++
         }
-        state_data.write(destination + index, 0)
+        set_event_title_character(slot, index, 0)
     }
 
     sub event_title_length(ubyte slot) -> ubyte {
-        uword title = title_for_slot(slot)
         ubyte length = 0
 
-        while state_data.read(title + length) != 0 and length < 19
+        while length < MAX_EVENT_TEXT and
+              state_data.read(text_address(slot, length)) != 0
             length++
         return length
     }
@@ -126,17 +144,26 @@ calendar_app {
     }
 
     sub set_event_title_character(ubyte slot, ubyte index, ubyte value) {
-        uword title = title_for_slot(slot)
-
-        state_data.write(title + index, value)
+        state_data.write(text_address(slot, index), value)
     }
 
     sub draw_event_title(ubyte slot) {
-        ubyte index
-        uword title = title_for_slot(slot)
-        for index in 0 to 19
-            event_title_buffer[index] = state_data.read(title + index)
-        gfx_lores.text(77, 101, theme.INK, event_title_buffer)
+        ubyte row
+        ubyte column
+        ubyte position = 0
+        for row in 0 to 2 {
+            column = 0
+            while column < 22 and position < MAX_EVENT_TEXT {
+                ubyte character = state_data.read(text_address(slot, position))
+                if character == 0 break
+                event_title_buffer[column] = character
+                column++
+                position++
+            }
+            event_title_buffer[column] = 0
+            gfx_lores.text(77, 81 + row * 13, theme.INK, event_title_buffer)
+            if column < 22 break
+        }
     }
 
     sub draw_event_title_field() {
@@ -145,9 +172,9 @@ calendar_app {
         ; flash caused by drawing the entire modal for every character.
         ubyte event_slot = event_slot_for(selected_day)
 
-        gfx_lores.fillrect(72, 97, 182, 16, theme.PAPER)
+        gfx_lores.fillrect(72, 77, 182, 48, theme.PAPER)
         if event_slot == NO_EVENT_SLOT
-            gfx_lores.text(77, 101, theme.SOFT_BLUE, iso:"TYPE EVENT NAME")
+            gfx_lores.text(77, 81, theme.SOFT_BLUE, iso:"TYPE EVENT DETAILS")
         else
             draw_event_title(event_slot)
     }
@@ -367,8 +394,11 @@ calendar_app {
         if event_slot != NO_EVENT_SLOT
             event_type = event_types[event_slot]
 
-        gfx_lores.fillrect(193, 57, 85, 119, theme.NAVY)
-        gfx_lores.text(201, 62, theme.SOFT_BLUE, iso:"SELECTED")
+        ; Align with the month arrows at y=52. Leave a solid bottom inset
+        ; below REMOVE and a gap before the footer controls begin at y=182.
+        gfx_lores.fillrect(193, 52, 85, 127, theme.NAVY)
+        gfx_lores.rect(193, 52, 85, 127, theme.BLUE)
+        gfx_lores.text(201, 57, theme.SOFT_BLUE, iso:"SELECTED")
         gfx_lores.text(201, 75, theme.PAPER, iso:"DAY")
         gfx_lores.text(241, 75, theme.PAPER, conv.str_ub(selected_day))
 
@@ -450,32 +480,32 @@ calendar_app {
 
         ; This smaller window sits above the month view, making the connection
         ; between the clicked date and its event obvious.
-        gfx_lores.fillrect(61, 61, 210, 132, theme.INK)
-        gfx_lores.fillrect(58, 58, 210, 132, theme.PAPER)
-        gfx_lores.rect(58, 58, 210, 132, theme.INK)
+        gfx_lores.fillrect(61, 41, 210, 166, theme.INK)
+        gfx_lores.fillrect(58, 38, 210, 166, theme.PAPER)
+        gfx_lores.rect(58, 38, 210, 166, theme.INK)
 
-        gfx_lores.fillrect(59, 59, 208, 16, theme.BLUE)
-        gfx_lores.text(66, 63, theme.PAPER, iso:"EVENT DETAILS")
-        gfx_lores.fillrect(247, 61, 15, 12, theme.RED)
-        gfx_lores.text(251, 63, theme.PAPER, iso:"X")
+        gfx_lores.fillrect(59, 39, 208, 16, theme.BLUE)
+        gfx_lores.text(66, 43, theme.PAPER, iso:"EVENT DETAILS")
+        gfx_lores.fillrect(247, 41, 15, 12, theme.RED)
+        gfx_lores.text(251, 43, theme.PAPER, iso:"X")
 
-        draw_month_name(70, 81, theme.BLUE)
-        gfx_lores.text(153, 81, theme.INK, conv.str_ub(selected_day))
+        draw_month_name(70, 61, theme.BLUE)
+        gfx_lores.text(153, 61, theme.INK, conv.str_ub(selected_day))
 
         ; Editable title field
-        gfx_lores.fillrect(69, 94, 188, 22, theme.INK)
+        gfx_lores.fillrect(69, 74, 188, 54, theme.INK)
         draw_event_title_field()
 
-        gfx_lores.text(70, 119, theme.BLUE, iso:"TYPE")
-        draw_editor_type_button(70, 130, 54, theme.RED, iso:"APPT",
+        gfx_lores.text(70, 132, theme.BLUE, iso:"TYPE / 47 CHARS MAX")
+        draw_editor_type_button(70, 143, 54, theme.RED, iso:"APPT",
                                 event_type == EVENT_APPOINTMENT)
-        draw_editor_type_button(129, 130, 54, theme.BLUE, iso:"TASK",
+        draw_editor_type_button(129, 143, 54, theme.BLUE, iso:"TASK",
                                 event_type == EVENT_TASK)
-        draw_editor_type_button(188, 130, 68, theme.GREEN, iso:"PERSON",
+        draw_editor_type_button(188, 143, 68, theme.GREEN, iso:"PERSON",
                                 event_type == EVENT_PERSONAL)
 
-        draw_editor_action(70, 162, 67, iso:"DELETE")
-        draw_editor_action(193, 162, 63, iso:"DONE")
+        draw_editor_action(70, 179, 67, iso:"DELETE")
+        draw_editor_action(193, 179, 63, iso:"DONE")
     }
 
     sub draw_editor_type_button(uword x, ubyte y, ubyte width, ubyte color,
@@ -508,7 +538,8 @@ calendar_app {
             return
         }
 
-        if key >= 32 and key <= 126 and length < 19 {
+        if key >= $c1 and key <= $da key -= $80
+        if key >= 32 and key <= 126 and length < MAX_EVENT_TEXT {
             if event_slot == NO_EVENT_SLOT
                 event_slot = ensure_selected_event(EVENT_PERSONAL)
 
@@ -535,20 +566,20 @@ calendar_app {
             input.poll()
 
             if input.left_pressed() {
-                if input.inside(70, 130, 54, 19) {
+                if input.inside(70, 143, 54, 19) {
                     set_selected_event_type(EVENT_APPOINTMENT)
                     draw_event_editor()
-                } else if input.inside(129, 130, 54, 19) {
+                } else if input.inside(129, 143, 54, 19) {
                     set_selected_event_type(EVENT_TASK)
                     draw_event_editor()
-                } else if input.inside(188, 130, 68, 19) {
+                } else if input.inside(188, 143, 68, 19) {
                     set_selected_event_type(EVENT_PERSONAL)
                     draw_event_editor()
-                } else if input.inside(70, 162, 67, 18) {
+                } else if input.inside(70, 179, 67, 18) {
                     remove_selected_event()
                     draw_event_editor()
-                } else if input.inside(193, 162, 63, 18) or
-                          input.inside(247, 61, 15, 12) {
+                } else if input.inside(193, 179, 63, 18) or
+                          input.inside(247, 41, 15, 12) {
                     close_editor = true
                 }
             }
@@ -561,6 +592,7 @@ calendar_app {
 
         ; Do not let Escape leak into the month window and close both layers.
         input.key = 0
+        save_state()
     }
 
     sub open() {

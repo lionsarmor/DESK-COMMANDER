@@ -26,7 +26,7 @@ comms_app {
     extsub @bank 16 $a00c = chat_draw_composer() clobbers(A, X, Y)
     extsub @bank 16 $a00f = chat_insert_emoji() clobbers(A, X, Y)
     extsub @bank 16 $a012 = chat_draw_emoji_picker() clobbers(A, X, Y)
-    extsub @bank 17 $a00f = chat_secret_dialog() clobbers(X, Y) -> bool @A
+    extsub @bank 17 $a012 = chat_secret_dialog() clobbers(X, Y) -> bool @A
 
     ubyte[17] name_text
     ; edit_text doubles as the inline message draft. Dialogs and the composer

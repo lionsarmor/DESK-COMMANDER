@@ -73,7 +73,7 @@ distinctly retro.
 |---|---|---|
 | Desktop | App rail, glance panels, clock, sound/Wi-Fi status, keyboard selection | Connect glance notes to full Notes data; finish keyboard focus |
 | Notes | Six persistent titled multiline notes, read-only Open, explicit Edit, transactional Add/Delete, keyboard focus, scrolling | Word-aware wrapping, undo, import/export |
-| Calendar | Month navigation and 24 persistent editable events | Multiple events per day, agenda, recurrence, reminders, RTC Today |
+| Calendar | Month navigation, 24 persistent events with 47-character wrapped details, direct dashboard-date opening | Multiple events per day, agenda, recurrence, reminders, RTC Today |
 | Desk Directory | Blank first run; search, scrolling, detailed cards, transactional Add/Edit/Delete, safe legacy-record migration, 47-character email addresses | Larger capacity, sorting, duplicate, import/export |
 | Calculator | Arithmetic, decimals, backspace, divide-by-zero handling | Memory keys and final edge-case testing |
 | File Manager | Real device-8 browsing, file/folder operations, text open, and protected PRG/AUTOBOOT launch | Copy, destination browser, filters, richer error handling |
@@ -173,6 +173,31 @@ recommend VERA 48.0.1 and SMC 48.0.0 or 47.2.3.
 
 ## 🧭 Everyday controls
 
+### Opening files and other X16 programs
+
+In Files, select an item and choose **Open** (or press Enter); double-click
+also opens it. Folders stay inside the current browsing tree, and closing
+Files returns to Desk Commander's own folder so its other apps remain available.
+
+- **`.PRG` and `.X16` programs:** Open exits Desk Commander and starts the
+  selected program through BASIC's LOAD/RUN chain. This includes `AUTOBOOT.X16`
+  and normal compiled programs with a BASIC `SYS` starter. The target's current
+  directory is retained so it can load its companion files. Reopen Desk
+  Commander when finished; this is a program launch, not an app overlay.
+- **Raw machine-code binaries:** these need their own loader/entry address.
+  Files reports `NEEDS BASIC LOADER` rather than guessing an address.
+- **Text files:** open in Text Editor ++ and return to Files when closed.
+  Binary control data and files over 2,047 bytes are rejected before editing
+  (`NOT TEXT OR OVER 2K`), protecting originals from partial-file saves.
+- **Names and Move paths:** support up to 50 characters; the input shows the
+  last 24 while typing. Rename preserves the complete original name.
+
+The conventional boot filename is **`AUTOBOOT.X16`**, not `AUTOBOOT.16`.
+An SD/HostFS directory's generic `PRG` type is not enough to treat text or
+`.BIN` assets as executable; use the actual `.PRG`/`.X16` filename suffix.
+
+### Keyboard and mouse
+
 - **Desktop:** click an app, or use arrows and `Enter`.
 - **Close:** use the visible red `X` or press `Esc`.
 - **Scrollable areas:** use the mouse wheel, scrollbar, or arrow keys.
@@ -182,9 +207,17 @@ recommend VERA 48.0.1 and SMC 48.0.0 or 47.2.3.
   closes with an unsaved-work check.
 - **Notes:** click a populated row or select it with arrows and press `Enter` to
   open the read-only reader. Choose Edit there to make changes. `Tab` also
-  reaches Add/Edit/Delete/Done.
+  reaches Add/Edit/Delete/Done. Inside the reader, Tab selects Edit or Done;
+  arrows/wheel scroll long notes. The body editor follows the end while typing.
 - **Desk Directory:** type to filter, use arrows/wheel to select, `Enter` edits,
   `Insert` adds, and `Delete` twice deletes when the search field is empty.
+  Click the card's **CLICK TO VIEW** area to read every field, including the
+  complete email address. In the email editor, left/right arrows move the
+  cursor; typing inserts and Backspace deletes before it. Cancel rolls back
+  the entire card.
+- **Calendar:** click a highlighted dashboard date to open its event details
+  directly. The heading or an unhighlighted area opens the month view. Event
+  text supports 47 characters across three lines; Done or Esc saves and closes.
 - **Network Setup:** `D` detects, `W` scans, `J` joins, `I` checks status, and
   `Esc` closes. Select an SSID with the pointer, arrows, wheel, or number.
 - **Comms:** set `USER` plus its password and an HTTPS `HOST`, press `SYNC`, open the square conversation
@@ -356,12 +389,26 @@ dist/sdcard/            Complete SD-card-ready runtime package
 ```
 
 The core PRG remains below the X16 I/O window. Larger features are loaded into
-RAM banks 4 through 19: Files, operations, editor, external launcher, Network,
+RAM banks 4 through 20: Files, operations, editor, external launcher, Network,
 SSID picker, Market Watch, quote fetching, persistence, Notes, Comms, chat HTTP,
-chat rendering, emoji artwork, the Deep Space screensaver, and Desk Directory. Compact
+chat rendering, emoji artwork, the Deep Space screensaver, Desk Directory, and
+organizer dialogs. Compact
 dashboard-card artwork remains in the safely sized core program.
 Shared bounded state and chat buffers use
 VERA RAM. Runtime filenames are 8.3-safe for both HostFS and physical SD cards.
+
+After building, run `python tools/test-organizer.py` in a Python environment
+with `py65` installed to execute the compiled 65C02 organizer regression tests.
+These check bank entry addresses, migration boundaries, long-email editing,
+read-only Notes, and contact save/rollback copies. ROM, input, video, and disk
+operations are stubbed; physical-machine UI and SD tests are still required.
+Run `python tools/test-files.py` in the same environment for file routing,
+safe text limits, full filenames, and bounded DOS commands. Run
+`python3 tools/test-file-launch.py` for real-ROM emulator checks of BASIC,
+SYS, AUTOBOOT, and missing/invalid program handling (no SD card required).
+
+Run `python tools/test-calendar.py` for compiled calendar text-limit,
+storage-boundary, wrapping, and dashboard-date hitbox checks.
 
 The pinned toolchain is:
 

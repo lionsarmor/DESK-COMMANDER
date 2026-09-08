@@ -171,6 +171,8 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [x] Add titles and 108-character multiline note bodies.
 - [x] Add New, Open/Edit, Save, Rename, and confirmed Delete for the slot model.
 - [x] Keep editing transactional so Cancel discards the uncommitted title/body.
+- [x] Correct bank-20 entry addresses and initialization; consume modal input.
+- [x] Scroll the reader through every line and keep body entry visible.
 - [ ] Add word wrap, Find, and at least one level of Undo.
 - [ ] Add plain-text import/export with documented character conversion.
 - [ ] Decide whether Quick Notes and full Notes share one record model.
@@ -180,6 +182,9 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [x] Navigate months with visible previous/next controls.
 - [x] Add, view, edit, color-code, delete, save, and reload titled events.
 - [x] Reflect saved appointments in the desktop glance calendar.
+- [x] Open highlighted dashboard dates directly in their event editor.
+- [x] Expand event details to 47 characters with three-line dirty-region rendering.
+- [x] Preserve legacy titles in place while extending all 24 records within the 4 KB save.
 - [x] Restrict event-title editing to its dirty region.
 - [ ] Read Today from the RTC instead of fixed alpha defaults.
 - [ ] Store more than one event on the same date.
@@ -198,6 +203,10 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [x] Store name, role/organization, phone, email, and social handle.
 - [x] Add transactional Edit and confirmed Delete workflows.
 - [x] Expand email storage to 47 characters and migrate existing Alpha cards.
+- [x] Fix contact flag copies across banks, redraw after Add/Cancel, and retain selection.
+- [x] Bound previews to their panels and show complete fields in a contact viewer.
+- [x] Add cursor insertion/deletion for long emails and search their complete value.
+- [ ] Repeat Notes/Directory save-reboot and mouse-dialog checks on physical X16.
 - [ ] Add Duplicate.
 - [ ] Expand user-created capacity and add address and notes.
 - [ ] Sort alphabetically and preserve selection while filtering.
@@ -210,8 +219,15 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [x] Enumerate real device-8 directories with file/folder icons and scrolling.
 - [x] Create files with user-selected extensions and create folders.
 - [x] Open, rename, move, and confirm deletion.
-- [x] Recognize `.PRG` and `.X16` entries and launch them through a protected
-      Golden-RAM loader that cannot be overwritten by the incoming program.
+- [x] Validate `.PRG`/`.X16` headers and launch standard BASIC/SYS programs
+      through BASIC's LOAD/RUN chain, with a protected Golden-RAM handoff.
+      Partial LOAD failures no longer return into overwritten desktop code.
+- [x] Emulator regression tests: BASIC, SYS, AUTOBOOT chaining, invalid/missing files.
+- [x] Preserve 50-character rename/move names and editor overwrite filenames.
+- [x] Use a dedicated 104-byte DOS command buffer for rename/move, create/delete
+      folders, delete files, and entering long folder names; avoid library scratch overflow.
+- [x] Reject binary and oversized files before opening the 2 KB text editor.
+- [ ] Hardware regression: launch third-party PRGs/AUTOBOOT from nested SD folders.
 - [x] Open ordinary files in Text Editor ++ and return cleanly to Files.
 - [x] Support multiline editing, mouse placement, Save, Save As, and dirty warnings.
 - [ ] Add Copy.

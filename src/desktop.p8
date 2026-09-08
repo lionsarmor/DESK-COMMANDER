@@ -40,6 +40,8 @@ desktop {
     extsub @bank 12 $a003 = open_comms_app() clobbers(A, X, Y)
     extsub @bank 19 $a000 = initialize_rolodex_app() clobbers(A, X, Y)
     extsub @bank 19 $a003 = open_rolodex_app() clobbers(A, X, Y)
+    extsub @bank 20 $a000 = initialize_organizer() clobbers(A, X, Y)
+    extsub @bank 17 $a000 = initialize_comms_emoji() clobbers(A, X, Y)
     extsub @bank 18 $a000 = initialize_screensaver() clobbers(A, X, Y)
     extsub @bank 18 $a003 = open_screensaver() clobbers(A, X, Y)
     sub draw_compact_market() { desktop_extras.draw_market_watch() }
@@ -84,12 +86,14 @@ desktop {
     sub load_notes() -> bool {
         bool loaded = load_bank(iso:"ZZNOTES.BIN", 11)
         if not load_bank(iso:"ZZORGX.BIN", 20) loaded = false
+        if loaded initialize_organizer()
         return loaded
     }
 
     sub load_rolodex() -> bool {
         bool loaded = load_bank(iso:"ZZROLO.BIN", 19)
         if not load_bank(iso:"ZZORGX.BIN", 20) loaded = false
+        if loaded initialize_organizer()
         return loaded
     }
 
@@ -98,6 +102,7 @@ desktop {
         if not load_bank(iso:"ZZCHATNET.BIN", 15) loaded = false
         if not load_bank(iso:"ZZCHATUI.BIN", 16) loaded = false
         if not load_bank(iso:"ZZEMOJI.BIN", 17) loaded = false
+        if loaded initialize_comms_emoji()
         return loaded
     }
 
@@ -396,6 +401,19 @@ desktop {
         }
 
         gfx_lores.text(x, y, text_color, conv.str_ub(day))
+    }
+
+    sub glance_event_at_pointer() -> ubyte {
+        ubyte day
+        for day in 1 to calendar_app.days_in_month() {
+            ubyte slot = calendar_app.first_weekday + day - 1
+            uword x = 173 + ((slot % 7) as uword) * 19
+            ubyte y = 66 + (slot / 7) * 9
+            if input.inside(x, y, 18, 9) and
+               calendar_app.event_type_for_day(day) != calendar_app.EVENT_NONE
+                return day
+        }
+        return 0
     }
 
     sub refresh_market_glance() {
@@ -1154,7 +1172,16 @@ desktop {
             } else
                 draw_status(iso:"NOTES APP IS MISSING")
         } else if hovered_section == SECTION_CALENDAR {
-            calendar_app.open()
+            ; Keyboard activation opens the month. A mouse click on a colored
+            ; dashboard date opens that event directly, using the same grid.
+            ubyte day = 0
+            if input.buttons & 1 != 0
+                day = glance_event_at_pointer()
+            if day != 0 {
+                calendar_app.selected_day = day
+                calendar_app.open_event_editor()
+            } else
+                calendar_app.open()
             show()
         } else if hovered_section == SECTION_ROLODEX {
             if load_rolodex() {

@@ -6,7 +6,7 @@
 
 ; Bank 14 entry: initialization is $A000 and launch is $A003.
 main {
-    %jmptable (program_launcher.launch)
+    %jmptable (program_launcher.launch, program_launcher.validate_text)
 
     sub start() { }
 }

@@ -13,8 +13,10 @@
 ; save as soon as they complete. A fresh installation starts empty.
 
 rolodex_app {
-    extsub @bank 20 $a003 = edit_long_email() clobbers(X, Y) -> bool @A
-    extsub @bank 20 $a006 = migrate_directory_records() clobbers(A, X, Y)
+    extsub @bank 20 $a006 = edit_long_email() clobbers(X, Y) -> bool @A
+    extsub @bank 20 $a009 = migrate_directory_records() clobbers(A, X, Y)
+    extsub @bank 20 $a00c = show_contact() clobbers(A, X, Y)
+    extsub @bank 20 $a00f = show_contact_preview() clobbers(A, X, Y)
     const ubyte CUSTOM_COUNT = 4
     const ubyte CONTACT_COUNT = CUSTOM_COUNT
     const ubyte NO_CONTACT = 255
@@ -44,7 +46,7 @@ rolodex_app {
     bool initialized
     ubyte[CONTACT_COUNT] contact_active
     ubyte[17] search_text
-    ubyte[25] contact_buffer
+    ubyte[48] contact_buffer
     ubyte[25] field_text
     ubyte selected_result
     ubyte scroll_offset
@@ -57,11 +59,9 @@ rolodex_app {
             return
 
         if state_data.read(state_data.ROLODEX) == $a9 {
-            state_data.restore(state_data.ROLODEX + 1, &contact_active,
-                               CONTACT_COUNT)
+            restore_active()
         } else if state_data.read(state_data.ROLODEX) == $a8 {
-            state_data.restore(state_data.ROLODEX + 1, &contact_active,
-                               CONTACT_COUNT)
+            restore_active()
             migrate_directory_records()
             save_state()
         } else {
@@ -73,10 +73,18 @@ rolodex_app {
     }
 
     sub save_state() {
+        ubyte contact
         state_data.write(state_data.ROLODEX, $a9)
-        state_data.store(&contact_active, state_data.ROLODEX + 1,
-                         CONTACT_COUNT)
+        ; Copy while bank 19 is mapped: bank 10 cannot dereference our arrays.
+        for contact in 0 to CONTACT_COUNT - 1
+            state_data.write(state_data.ROLODEX + 1 + contact, contact_active[contact])
         state_data.save()
+    }
+
+    sub restore_active() {
+        ubyte contact
+        for contact in 0 to CONTACT_COUNT - 1
+            contact_active[contact] = state_data.read(state_data.ROLODEX + 1 + contact)
     }
 
     sub custom_address(ubyte contact, ubyte field) -> uword {
@@ -125,7 +133,7 @@ rolodex_app {
     }
 
     sub contact_email(ubyte contact) -> str {
-        return custom_value(contact, CUSTOM_EMAIL, 19)
+        return custom_value(contact, CUSTOM_EMAIL, 47)
     }
 
     sub contact_social(ubyte contact) -> str {
@@ -282,7 +290,8 @@ rolodex_app {
         if contact == NO_CONTACT
             gfx_lores.text(40, y + 5, theme.SOFT_BLUE, iso:"--")
         else
-            gfx_lores.text(40, y + 5, text_color, contact_name(contact))
+            gfx_lores.text(40, y + 5, text_color,
+                           custom_value(contact, CUSTOM_NAME, 12))
     }
 
     sub draw_scrollbar() {
@@ -300,23 +309,8 @@ rolodex_app {
     }
 
     sub draw_contact_card(ubyte contact) {
-        gfx_lores.fillrect(157, 87, 124, 102, theme.NAVY)
-
-        if contact == NO_CONTACT {
-            gfx_lores.text(166, 98, theme.PAPER, iso:"NO MATCHES")
-            return
-        }
-
-        draw_card_field(91, iso:"NAME", contact_name(contact))
-        draw_card_field(109, iso:"ROLE", contact_role(contact))
-        draw_card_field(127, iso:"PHONE", contact_phone(contact))
-        draw_card_field(145, iso:"EMAIL", contact_email(contact))
-        draw_card_field(163, iso:"SOCIAL", contact_social(contact))
-    }
-
-    sub draw_card_field(ubyte y, str label, str value) {
-        gfx_lores.text(166, y, theme.SOFT_BLUE, label)
-        gfx_lores.text(166, y + 8, theme.PAPER, value)
+        state_data.organizer_index = contact
+        show_contact_preview()
     }
 
     sub draw_action_button(uword x, ubyte y, ubyte width, str label,
@@ -440,6 +434,7 @@ rolodex_app {
         }
 
         edit_contact(contact, true)
+        draw_window()
     }
 
     sub edit_contact(ubyte contact, bool creating) {
@@ -488,6 +483,10 @@ rolodex_app {
         contact_active[contact] = 1
         search_text[0] = 0
         reset_search_selection()
+        ; Keep the card just added/edited selected when the list returns.
+        while selected_result < CONTACT_COUNT - 1 and
+              contact_at_result(selected_result) != contact
+            selected_result++
         status_message = 2
         save_state()
     }
@@ -505,6 +504,8 @@ rolodex_app {
 
     sub edit_search(ubyte key) {
         ubyte length = strings.length(search_text)
+        ; Changing the filter must cancel a pending delete confirmation.
+        status_message = 0
 
         if key == $14 {
             if length > 0
@@ -610,6 +611,14 @@ rolodex_app {
                             draw_results()
                         }
                     }
+                } else if input.inside(157, 87, 124, 102) {
+                    clicked_contact = contact_at_result(selected_result)
+                    if clicked_contact != NO_CONTACT {
+                        state_data.organizer_index = clicked_contact
+                        show_contact()
+                        input.key = 0
+                        draw_window()
+                    }
                 } else if input.inside(ADD_BUTTON_X, ACTION_BUTTON_Y,
                                        ADD_BUTTON_WIDTH,
                                        ACTION_BUTTON_HEIGHT)
@@ -673,8 +682,6 @@ rolodex_app {
                 draw_results()
             }
         } until close_window or input.key == $1b
-
-        save_state()
 
         ; Escape closes Desk Directory without also exiting the desktop.
         input.key = 0

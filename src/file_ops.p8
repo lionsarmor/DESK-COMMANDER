@@ -14,6 +14,30 @@
 
 file_ops {
     ubyte[51] edit_text
+    ; R:<50-byte destination>=<50-byte source> plus terminator. The library's
+    ; directory-name scratch buffer is only 51 bytes: never build commands in
+    ; it, even for MD/CD where a prefix would overflow a maximum-length name.
+    ubyte[104] command_text
+
+    sub name_command(str prefix, str name) {
+        ubyte length = strings.copy(prefix, command_text)
+        void strings.copy(name, &command_text + length)
+        diskio.send_command(command_text)
+    }
+
+    sub rename_command(str destination) {
+        command_text[0] = $52       ; R
+        command_text[1] = ':'
+        ubyte length = strings.copy(destination, &command_text + 2)
+        command_text[length + 2] = '='
+        void strings.copy(app_mailbox.filename, &command_text + length + 3)
+        diskio.send_command(command_text)
+    }
+
+    sub change_directory() {
+        name_command(iso:"CD:", app_mailbox.filename)
+        app_mailbox.dos_code = diskio.status_code()
+    }
 
     sub copy_text(str source, str destination, ubyte maximum) {
         ubyte index = 0
@@ -36,9 +60,14 @@ file_ops {
     }
 
     sub draw_field() {
+        ubyte length = strings.length(edit_text)
+        ubyte start = 0
+        if length > 24
+            start = length - 24
         gfx_lores.fillrect(55, 103, 210, 22, theme.INK)
         gfx_lores.fillrect(58, 106, 204, 16, theme.PAPER)
-        gfx_lores.text(63, 110, theme.INK, edit_text)
+        ; Preserve the full name/path; show its tail while typing.
+        gfx_lores.text(63, 110, theme.INK, &edit_text + start)
     }
 
     sub ask(str title, str hint, str initial, bool allow_path) -> bool {
@@ -46,7 +75,7 @@ file_ops {
         bool accepted = false
         ubyte length
 
-        copy_text(initial, edit_text, 24)
+        copy_text(initial, edit_text, 50)
         gfx_lores.fillrect(45, 70, 230, 105, theme.INK)
         gfx_lores.fillrect(42, 67, 230, 105, theme.PAPER)
         gfx_lores.rect(42, 67, 230, 105, theme.INK)
@@ -70,7 +99,7 @@ file_ops {
                 draw_field()
             } else if valid_key(input.key, allow_path) {
                 length = strings.length(edit_text)
-                if length < 24 {
+                if length < 50 {
                     edit_text[length] = input.key
                     edit_text[length + 1] = 0
                     draw_field()
@@ -104,7 +133,7 @@ file_ops {
     sub new_folder() {
         app_mailbox.result = app_mailbox.RESULT_CANCEL
         if ask(iso:"NEW FOLDER", iso:"FOLDER NAME", iso:"", false) {
-            diskio.mkdir(edit_text)
+            name_command(iso:"MD:", edit_text)
             finish_command()
         }
     }
@@ -125,7 +154,7 @@ file_ops {
     sub rename_item() {
         app_mailbox.result = app_mailbox.RESULT_CANCEL
         if ask(iso:"RENAME ITEM", iso:"NEW NAME", app_mailbox.filename, false) {
-            diskio.rename(app_mailbox.filename, edit_text)
+            rename_command(edit_text)
             finish_command()
         }
     }
@@ -134,7 +163,7 @@ file_ops {
         app_mailbox.result = app_mailbox.RESULT_CANCEL
         if ask(iso:"MOVE ITEM", iso:"PATH/NAME", iso:"", true) {
             copy_text(edit_text, app_mailbox.destination, 50)
-            diskio.rename(app_mailbox.filename, app_mailbox.destination)
+            rename_command(app_mailbox.destination)
             finish_command()
         }
     }
@@ -176,9 +205,9 @@ file_ops {
 
         if confirmed {
             if app_mailbox.item_is_directory
-                diskio.rmdir(app_mailbox.filename)
+                name_command(iso:"RD:", app_mailbox.filename)
             else
-                diskio.delete(app_mailbox.filename)
+                name_command(iso:"S:", app_mailbox.filename)
             finish_command()
         }
         input.key = 0

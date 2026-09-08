@@ -12,7 +12,8 @@ main {
         file_ops.new_file,
         file_ops.rename_item,
         file_ops.move_item,
-        file_ops.delete_item
+        file_ops.delete_item,
+        file_ops.change_directory
     )
 
     sub start() { }

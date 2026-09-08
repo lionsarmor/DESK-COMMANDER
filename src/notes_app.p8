@@ -13,7 +13,8 @@
 ; Save commits both fields, while Cancel/Escape leaves the old note untouched.
 
 notes_app {
-    extsub @bank 20 $a000 = open_note_reader() clobbers(X, Y) -> bool @A
+    extsub @bank 20 $a003 = open_note_reader() clobbers(X, Y) -> bool @A
+    extsub @bank 20 $a012 = show_edit_body() clobbers(A, X, Y)
     const ubyte NOTE_COUNT = 6
     const ubyte VISIBLE_ROWS = 4
     const ubyte TITLE_SIZE = 22
@@ -136,7 +137,7 @@ notes_app {
             3 -> gfx_lores.text(41, 59, theme.RED, iso:"NOTES FULL")
             4 -> gfx_lores.text(41, 59, theme.RED, iso:"DELETE AGAIN TO CONFIRM")
             else -> gfx_lores.text(41, 59, theme.BLUE,
-                                   iso:"SELECT A NOTE TO EDIT")
+                                   iso:"SELECT A NOTE TO READ")
         }
 
         draw_note_rows()
@@ -256,7 +257,7 @@ notes_app {
         gfx_lores.text(47, 73, theme.PAPER, heading)
         gfx_lores.text(54, 92, theme.BLUE, iso:"TITLE")
         draw_title_field()
-        draw_dialog_button(58, 72, iso:"SAVE", true)
+        draw_dialog_button(58, 72, iso:"NEXT", true)
         draw_dialog_button(177, 80, iso:"CANCEL", false)
 
         do {
@@ -290,26 +291,12 @@ notes_app {
     }
 
     sub draw_body_field() {
-        ubyte row
-        ubyte column
-        ubyte position = 0
-
-        gfx_lores.fillrect(50, 87, 220, 61, theme.INK)
-        gfx_lores.fillrect(53, 90, 214, 55, theme.PAPER)
-        for row in 0 to BODY_ROWS - 1 {
-            column = 0
-            while column < BODY_COLUMNS and edit_body[position] != 0 and
-                  edit_body[position] != $0d {
-                line_buffer[column] = edit_body[position]
-                column++
-                position++
-            }
-            line_buffer[column] = 0
-            if column > 0
-                gfx_lores.text(55, 93 + row * 12, theme.INK, line_buffer)
-            if edit_body[position] == $0d
-                position++
-        }
+        ; VERA scratch is outside the saved image and contact rollback area.
+        ; Never pass a bank-11 pointer to code executing in another bank.
+        ubyte index
+        for index in 0 to BODY_SIZE - 1
+            state_data.write($7d00 + index, edit_body[index])
+        show_edit_body()
     }
 
     sub ask_body() -> bool {
@@ -463,6 +450,8 @@ notes_app {
         state_data.organizer_index = selected_note
         if open_note_reader()
             edit_note(false)
+        input.key = 0
+        input.wheel = 0
     }
 
     sub open() {
@@ -485,12 +474,8 @@ notes_app {
                     status_message = 0
                     selected_note = clicked_note
                     focus_item = FOCUS_LIST
-                    draw_note_rows()
-                    draw_actions()
-                    if note_active[selected_note - 1] != 0 {
-                        view_note()
-                        draw_window()
-                    }
+                    view_note()
+                    draw_window()
                 } else if input.inside(41, 179, 42, 16) {
                     focus_item = FOCUS_ADD
                     edit_note(true)
