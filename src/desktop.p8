@@ -1158,7 +1158,7 @@ desktop {
                 open_rolodex_app()
                 show()
             } else
-                draw_status(iso:"ROLODEX APP IS MISSING")
+                draw_status(iso:"DIRECTORY APP IS MISSING")
         } else if hovered_section == SECTION_FILES {
             if load_file_suite() {
                 initialize_file_manager()

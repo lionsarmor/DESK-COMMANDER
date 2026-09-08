@@ -5,7 +5,7 @@
 %import theme
 
 ; -----------------------------------------------------------------------------
-; Rolodex application
+; Desk Directory application
 ; -----------------------------------------------------------------------------
 ;
 ; Four user-created cards live in the shared SD-backed state image. Typing
@@ -227,7 +227,7 @@ rolodex_app {
         gfx_lores.rect(24, 28, 269, 181, theme.INK)
 
         gfx_lores.fillrect(25, 29, 267, 16, theme.BLUE)
-        gfx_lores.text(32, 33, theme.PAPER, iso:"ROLODEX")
+        gfx_lores.text(32, 33, theme.PAPER, iso:"DESK DIRECTORY")
         gfx_lores.fillrect(272, 31, 15, 12, theme.RED)
         gfx_lores.text(276, 33, theme.PAPER, iso:"X")
 
@@ -241,7 +241,7 @@ rolodex_app {
         draw_results()
 
         when status_message {
-            1 -> gfx_lores.text(34, 196, theme.RED, iso:"ROLODEX FULL")
+            1 -> gfx_lores.text(34, 196, theme.RED, iso:"DIR FULL")
             2 -> gfx_lores.text(34, 196, theme.GREEN, iso:"SAVED")
             3 -> gfx_lores.text(34, 196, theme.GREEN, iso:"DELETED")
             else -> gfx_lores.text(34, 196, theme.SOFT_BLUE, iso:"TYPE TO FIND")
@@ -622,7 +622,7 @@ rolodex_app {
 
         save_state()
 
-        ; Escape closes Rolodex without also exiting the desktop.
+        ; Escape closes Desk Directory without also exiting the desktop.
         input.key = 0
     }
 }

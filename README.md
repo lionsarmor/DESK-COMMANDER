@@ -37,7 +37,7 @@ distinctly retro.
 - **📝 Notes:** maintain six saved notes in a scrollable list.
 - **📅 Calendar:** browse months and add, view, edit, or delete color-coded
   appointments, tasks, and personal events.
-- **📇 Rolodex:** add, search, scroll, inspect, and delete saved contact cards
+- **📇 Desk Directory:** add, search, scroll, inspect, and delete saved contact cards
   with name, role, phone, email, and social fields.
 - **🧮 Calculator:** perform mouse- or keyboard-driven arithmetic with decimals.
 - **📁 Files:** browse device 8, enter folders, create files or directories,
@@ -73,7 +73,7 @@ distinctly retro.
 | Desktop | App rail, glance panels, clock, sound/Wi-Fi status, keyboard selection | Connect glance notes to full Notes data; finish keyboard focus |
 | Notes | Six persistent short notes, add/delete, scrolling, scrollbar | Titles, long bodies, word wrap, undo, import/export |
 | Calendar | Month navigation and 24 persistent editable events | Multiple events per day, agenda, recurrence, reminders, RTC Today |
-| Rolodex | Blank first run; search, scrolling, detailed cards, Add/Delete, four persistent custom contacts | Edit contacts, larger capacity, sorting, import/export |
+| Desk Directory | Blank first run; search, scrolling, detailed cards, Add/Delete, four persistent custom contacts | Edit contacts, larger capacity, sorting, import/export |
 | Calculator | Arithmetic, decimals, backspace, divide-by-zero handling | Memory keys and final edge-case testing |
 | File Manager | Real device-8 browsing, file/folder operations, text open, and protected PRG/AUTOBOOT launch | Copy, destination browser, filters, richer error handling |
 | Text Editor ++ | Multiline editing, Save, Save As, mouse placement | Find, clipboard, undo, larger documents, safer replacement saves |
@@ -298,7 +298,7 @@ alpha creates a fresh state image.
 | Theme, cursor, sound, clock | Saved immediately when changed |
 | Notes | Six short slots saved when Notes closes |
 | Calendar | Current view and up to 24 titled events |
-| Rolodex | Active/deleted state plus four complete user-created contact cards |
+| Desk Directory | Active/deleted state plus four complete user-created contact cards |
 | Network | Last SSID and confirmed-link indicator; never the Wi-Fi password |
 | Market Watch | Symbols, quotes, page, and optional user API key |
 | Comms identity | X16 username and host saved locally |
@@ -310,7 +310,7 @@ backup recovery, full/write-protected-media handling, and power-loss testing
 remain V1 release blockers. Back up `DCSTATE.BIN` only while Desk Commander is
 closed.
 
-The Rolodex now starts blank and stores only contacts created by the user. Some
+Desk Directory now starts blank and stores only contacts created by the user. Some
 other alpha organizer screens still include demo records; production V1 will
 start all personal data blank unless Demo Data is explicitly selected.
 
@@ -331,7 +331,7 @@ dist/sdcard/            Complete SD-card-ready runtime package
 The core PRG remains below the X16 I/O window. Larger features are loaded into
 RAM banks 4 through 19: Files, operations, editor, external launcher, Network,
 SSID picker, Market Watch, quote fetching, persistence, Notes, Comms, chat HTTP,
-chat rendering, emoji artwork, the Deep Space screensaver, and Rolodex. Compact
+chat rendering, emoji artwork, the Deep Space screensaver, and Desk Directory. Compact
 dashboard-card artwork remains in the safely sized core program.
 Shared bounded state and chat buffers use
 VERA RAM. Runtime filenames are 8.3-safe for both HostFS and physical SD cards.
@@ -346,7 +346,7 @@ The pinned toolchain is:
 ## 🗺️ What comes next
 
 The next release work is centered on safe SD-card writes, authenticated and
-encrypted public messaging, deeper Notes/Calendar/Rolodex workflows, consistent
+encrypted public messaging, deeper Notes/Calendar/Desk Directory workflows, consistent
 keyboard focus, safer file editing, and long real-hardware tests.
 
 Read [ROADMAP.md](ROADMAP.md) for the prioritized checklist, milestones,

@@ -53,7 +53,7 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 | Sound and clock | ✅ | Saved sound toggle, interface/chat sounds, and working 12/24-hour display |
 | Notes | 🟡 | Six saved short notes with add/delete and dirty-region scrolling |
 | Calendar | 🟡 | Month navigation and 24 saved editable color-coded events |
-| Rolodex | 🟡 | Searchable/scrollable cards, Add/Delete, and four persistent custom contacts |
+| Desk Directory | 🟡 | Searchable/scrollable cards, Add/Delete, and four persistent custom contacts |
 | Calculator | ✅ | Mouse and keyboard arithmetic, decimals, backspace, and divide-by-zero handling |
 | File Manager | 🟡 | Real device-8 browsing, file/folder creation, rename, move, delete, text open, and PRG launch |
 | Text Editor ++ | 🟡 | 2 KB multiline editor, mouse placement, Save, Save As, and dirty-file warning |
@@ -80,7 +80,7 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 ### 1. Data integrity and SD-card recovery
 
 - [x] Define a bounded, signed, versioned `DCSTATE.BIN` format.
-- [x] Persist theme, cursor, sound, clock, Notes, Calendar, Rolodex deletion
+- [x] Persist theme, cursor, sound, clock, Notes, Calendar, Desk Directory deletion
       state, network state, Market Watch, and Comms identity/host.
 - [ ] Save to a temporary file before replacing the known-good state file.
 - [ ] Keep one recoverable backup of important organizer data.
@@ -187,7 +187,7 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [ ] Poll reminders safely while any application is open.
 - [ ] Test leap years, month/year boundaries, recurrence, and midnight rollover.
 
-### 8. Rolodex and contacts
+### 8. Desk Directory and contacts
 
 - [x] Start blank; search, scroll, inspect, and delete saved contacts.
 - [x] Add and immediately save four complete user-created contact cards.
@@ -222,7 +222,7 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [ ] Add `MC`, `MR`, `M+`, and `M-`.
 - [ ] Define rounding, overflow, negative-number, and display-length behavior.
 - [ ] Decide whether calculator state should persist when closed.
-- [ ] Add a bounded clipboard shared by Notes, Calendar, Rolodex, and the editor.
+- [ ] Add a bounded clipboard shared by Notes, Calendar, Desk Directory, and the editor.
 - [ ] Define PETSCII/ASCII conversion and truncation behavior.
 - [ ] Consider basic printer support only after core V1 stability.
 

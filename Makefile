@@ -45,8 +45,9 @@ ROLODEX_APP   := ZZROLO.BIN
 #   9 market network worker, 10 persistence, 11 Notes, 12 Comms,
 #   13 scrollable Wi-Fi picker, 14 external PRG launcher, 15 chat network,
 #   16 chat transcript renderer, 17 AIM-style emoji artwork,
-#   18 Deep Space screensaver, 19 Rolodex. Compact dashboard artwork stays in
-#   conventional RAM because the Rolodex move left safe room below $9800.
+#   18 Deep Space screensaver, 19 Desk Directory. Compact dashboard artwork
+#   stays in conventional RAM because the Directory move left safe room below
+#   $9800.
 # The filenames use 8.3-safe names so the same build works with HostFS and SD.
 # Keep each loadable bank tied only to the source it actually compiles. The
 # old all-sources dependency made one Comms edit rebuild fifteen unrelated
@@ -138,7 +139,7 @@ $(PROGRAM_LAUNCHER): $(SOURCE_DIR)/program_launcher_overlay.p8 $(SOURCE_DIR)/pro
 	@cp "$(BUILD_DIR)/program_launcher_overlay.bin" "$(PROGRAM_LAUNCHER)"
 
 $(ROLODEX_APP): $(SOURCE_DIR)/rolodex_overlay.p8 $(SOURCE_DIR)/rolodex_app.p8 $(INPUT_DEPS) | $(BUILD_DIR)
-	@echo "Building ROLODEX overlay..."
+	@echo "Building DESK DIRECTORY overlay..."
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
 		-target cx16 \

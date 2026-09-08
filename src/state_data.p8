@@ -33,7 +33,7 @@ state_data {
     ; history live on the chat server and are fetched into a separate cache.
     const uword COMMS = BASE + 850
 
-    ; Four 88-byte user-created Rolodex cards occupy offsets 904..1255.
+    ; Four 88-byte user-created Desk Directory cards occupy offsets 904..1255.
     ; Comms may use offsets through 902; Market begins at offset 1280.
     const uword ROLODEX_CUSTOM = BASE + 904
 
