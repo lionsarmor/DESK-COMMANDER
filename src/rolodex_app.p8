@@ -26,6 +26,17 @@ rolodex_app {
     const uword CUSTOM_STATE = state_data.ROLODEX_CUSTOM
     const uword OLD_CUSTOM_STATE = state_data.BASE + 900
 
+    ; Keep the complete footer hint clear of the action buttons. These shared
+    ; values are used for both drawing and mouse hit-testing.
+    const uword ADD_BUTTON_X = 132
+    const ubyte ADD_BUTTON_WIDTH = 39
+    const uword DELETE_BUTTON_X = 175
+    const ubyte DELETE_BUTTON_WIDTH = 58
+    const uword DONE_BUTTON_X = 237
+    const ubyte DONE_BUTTON_WIDTH = 50
+    const ubyte ACTION_BUTTON_Y = 191
+    const ubyte ACTION_BUTTON_HEIGHT = 14
+
     bool initialized
     ubyte[CONTACT_COUNT] contact_active
     ubyte[17] search_text
@@ -235,9 +246,12 @@ rolodex_app {
             3 -> gfx_lores.text(34, 196, theme.GREEN, iso:"DELETED")
             else -> gfx_lores.text(34, 196, theme.SOFT_BLUE, iso:"TYPE TO FIND")
         }
-        draw_action_button(118, 191, 39, iso:"ADD", theme.GREEN)
-        draw_action_button(161, 191, 60, iso:"DELETE", theme.RED)
-        draw_action_button(225, 191, 55, iso:"DONE", theme.BLUE)
+        draw_action_button(ADD_BUTTON_X, ACTION_BUTTON_Y, ADD_BUTTON_WIDTH,
+                           iso:"ADD", theme.GREEN)
+        draw_action_button(DELETE_BUTTON_X, ACTION_BUTTON_Y,
+                           DELETE_BUTTON_WIDTH, iso:"DELETE", theme.RED)
+        draw_action_button(DONE_BUTTON_X, ACTION_BUTTON_Y, DONE_BUTTON_WIDTH,
+                           iso:"DONE", theme.BLUE)
     }
 
     sub draw_search_field() {
@@ -559,12 +573,18 @@ rolodex_app {
                             draw_results()
                         }
                     }
-                } else if input.inside(118, 191, 39, 14)
+                } else if input.inside(ADD_BUTTON_X, ACTION_BUTTON_Y,
+                                       ADD_BUTTON_WIDTH,
+                                       ACTION_BUTTON_HEIGHT)
                     add_contact()
-                else if input.inside(161, 191, 60, 14) {
+                else if input.inside(DELETE_BUTTON_X, ACTION_BUTTON_Y,
+                                     DELETE_BUTTON_WIDTH,
+                                     ACTION_BUTTON_HEIGHT) {
                     delete_selected_contact()
                     draw_window()
-                } else if input.inside(225, 191, 55, 14) or
+                } else if input.inside(DONE_BUTTON_X, ACTION_BUTTON_Y,
+                                       DONE_BUTTON_WIDTH,
+                                       ACTION_BUTTON_HEIGHT) or
                           input.inside(272, 31, 15, 12) {
                     close_window = true
                 }
