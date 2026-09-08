@@ -23,7 +23,7 @@ state_data {
     ; a format version; changing a range requires a migration or version bump.
     const uword NOTES = BASE + 16       ; 144 bytes: offsets 16..159
     const uword CALENDAR = BASE + 160   ; 620 bytes: offsets 160..779
-    const uword ROLODEX = BASE + 780    ; 20 bytes: offsets 780..799
+    const uword ROLODEX = BASE + 780    ; marker + 4 active/deleted flags
     const uword NETWORK = BASE + 800    ; marker + 33-byte saved SSID field
     ; Last link result from this running session. Boot clears it so the header
     ; never presents yesterday's successful connection as a live green icon.
@@ -32,6 +32,10 @@ state_data {
     ; Saved Comms identity and LAN server address. Friends, rooms, and message
     ; history live on the chat server and are fetched into a separate cache.
     const uword COMMS = BASE + 850
+
+    ; Four 88-byte user-created Rolodex cards occupy offsets 904..1255.
+    ; Comms may use offsets through 902; Market begins at offset 1280.
+    const uword ROLODEX_CUSTOM = BASE + 904
 
     ; Market Watch owns the final 768 bytes, offsets 1280..2047.
     const uword MARKET = BASE + $0500
@@ -47,6 +51,11 @@ state_data {
     &uword transfer_memory_6 = $076a
     &uword transfer_memory_7 = $076c
     &uword transfer_memory_8 = $076e
+
+    ; Reserved one-way PRG runner. It sits immediately after the compiler's
+    ; current Golden-RAM BSS and below the persistence mailboxes. External app
+    ; launch may replace all ordinary and banked Desk Commander program RAM.
+    &ubyte[97] program_runner = $06eb
 
     extsub @bank 10 $a006 = persist_state_image() clobbers(A, X, Y)
     extsub @bank 10 $a009 = copy_memory_to_state() clobbers(A, X, Y)

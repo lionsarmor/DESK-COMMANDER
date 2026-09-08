@@ -21,6 +21,8 @@ ASSEMBLER    := $(TOOLS_DIR)/bin/64tass
 EMULATOR     := $(TOOLS_DIR)/x16emu/x16emu
 ROM          := $(TOOLS_DIR)/x16emu/rom.bin
 PROGRAM      := $(BUILD_DIR)/main.prg
+SHORTCUT     := $(BUILD_DIR)/DESKCMD.PRG
+AUTOBOOT     := $(BUILD_DIR)/AUTOBOOT.X16
 FILE_MANAGER := ZZFILEMAN.BIN
 FILE_OPERATIONS := ZZFILEOPS.BIN
 TEXT_EDITOR  := ZZEDITOR.BIN
@@ -34,29 +36,36 @@ NOTES_APP     := ZZNOTES.BIN
 COMMS_APP     := ZZCOMMS.BIN
 CHAT_NETWORK  := ZZCHATNET.BIN
 COMMS_VISUAL  := ZZCHATUI.BIN
+COMMS_EMOJI   := ZZEMOJI.BIN
+SCREEN_SAVER  := ZZSCREEN.BIN
+ROLODEX_APP   := ZZROLO.BIN
 
 # Bank map for the loadable files above:
 #   4 Files, 5 file operations, 6 editor, 7 network, 8 market UI,
 #   9 market network worker, 10 persistence, 11 Notes, 12 Comms,
-#   13 scrollable Wi-Fi picker, 14 external PRG launcher.
+#   13 scrollable Wi-Fi picker, 14 external PRG launcher, 15 chat network,
+#   16 chat transcript renderer, 17 AIM-style emoji artwork,
+#   18 Deep Space screensaver, 19 Rolodex. Compact dashboard artwork stays in
+#   conventional RAM because the Rolodex move left safe room below $9800.
 # The filenames use 8.3-safe names so the same build works with HostFS and SD.
 # Keep each loadable bank tied only to the source it actually compiles. The
-# old all-sources dependency made one Comms edit rebuild fourteen unrelated
+# old all-sources dependency made one Comms edit rebuild fifteen unrelated
 # programs, which looked like deskbuild was looping on a slower machine.
 STATE_DEPS   := $(SOURCE_DIR)/state_data.p8
 THEME_DEPS   := $(SOURCE_DIR)/theme.p8 $(STATE_DEPS)
 INPUT_DEPS   := $(SOURCE_DIR)/input.p8 $(SOURCE_DIR)/preferences.p8 $(THEME_DEPS)
 CORE_DEPS    := $(SOURCE_DIR)/main.p8 $(SOURCE_DIR)/desktop.p8 $(SOURCE_DIR)/splash.p8 \
 	$(SOURCE_DIR)/font5x7.p8 $(SOURCE_DIR)/calendar_app.p8 $(SOURCE_DIR)/market_data.p8 \
-	$(SOURCE_DIR)/rolodex_app.p8 $(SOURCE_DIR)/appmeta.p8 $(INPUT_DEPS)
+	$(SOURCE_DIR)/desktop_extras.p8 \
+	$(SOURCE_DIR)/appmeta.p8 $(INPUT_DEPS)
 FILE_DEPS    := $(SOURCE_DIR)/app_mailbox.p8 $(INPUT_DEPS)
 NET_DEPS     := $(SOURCE_DIR)/network_driver.p8 $(SOURCE_DIR)/network_mailbox.p8
 
 .PHONY: all run check sdcard clean setup
 
-all: $(PROGRAM) $(FILE_MANAGER) $(FILE_OPERATIONS) $(TEXT_EDITOR) $(PROGRAM_LAUNCHER) \
+all: $(PROGRAM) $(SHORTCUT) $(AUTOBOOT) $(FILE_MANAGER) $(FILE_OPERATIONS) $(TEXT_EDITOR) $(PROGRAM_LAUNCHER) \
 	$(NETWORK_APP) $(NETWORK_PICKER) $(MARKET_APP) $(MARKET_NETWORK) $(STATE_STORE) \
-	$(NOTES_APP) $(COMMS_APP) $(CHAT_NETWORK) $(COMMS_VISUAL)
+	$(NOTES_APP) $(COMMS_APP) $(CHAT_NETWORK) $(COMMS_VISUAL) $(COMMS_EMOJI) $(SCREEN_SAVER) $(ROLODEX_APP)
 
 setup:
 	./tools/setup-toolchain.sh
@@ -71,6 +80,18 @@ $(PROGRAM): $(CORE_DEPS) | $(BUILD_DIR)
 		-out "$(BUILD_DIR)" \
 		-asmlist \
 		"$(SOURCE_DIR)/main.p8"
+
+# Root-directory helper used by the ROM DOS wedge (^DESKCMD.PRG).
+$(SHORTCUT): $(SOURCE_DIR)/deskcmd_shortcut.asm | $(BUILD_DIR)
+	@echo "Building BASIC launch shortcut..."
+	@"$(TOOLS_DIR)/bin/64tass" --cbm-prg -o "$(SHORTCUT)" \
+		"$(SOURCE_DIR)/deskcmd_shortcut.asm"
+
+# Standard X16 BOOT chain: AUTOBOOT.X16 is BASIC and loads the real Prog8 PRG.
+$(AUTOBOOT): $(SOURCE_DIR)/autoboot.asm | $(BUILD_DIR)
+	@echo "Building AUTOBOOT.X16 loader..."
+	@"$(TOOLS_DIR)/bin/64tass" --cbm-prg -o "$(AUTOBOOT)" \
+		"$(SOURCE_DIR)/autoboot.asm"
 
 $(FILE_MANAGER): $(SOURCE_DIR)/file_manager_overlay.p8 $(SOURCE_DIR)/file_manager.p8 $(FILE_DEPS) | $(BUILD_DIR)
 	@echo "Building FILE MANAGER overlay..."
@@ -115,6 +136,17 @@ $(PROGRAM_LAUNCHER): $(SOURCE_DIR)/program_launcher_overlay.p8 $(SOURCE_DIR)/pro
 		-asmlist \
 		"$(SOURCE_DIR)/program_launcher_overlay.p8"
 	@cp "$(BUILD_DIR)/program_launcher_overlay.bin" "$(PROGRAM_LAUNCHER)"
+
+$(ROLODEX_APP): $(SOURCE_DIR)/rolodex_overlay.p8 $(SOURCE_DIR)/rolodex_app.p8 $(INPUT_DEPS) | $(BUILD_DIR)
+	@echo "Building ROLODEX overlay..."
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-out "$(BUILD_DIR)" \
+		-asmlist \
+		"$(SOURCE_DIR)/rolodex_overlay.p8"
+	@cp "$(BUILD_DIR)/rolodex_overlay.bin" "$(ROLODEX_APP)"
 
 $(NETWORK_APP): $(SOURCE_DIR)/network_overlay.p8 $(SOURCE_DIR)/network_app.p8 $(NET_DEPS) $(INPUT_DEPS) | $(BUILD_DIR)
 	@echo "Building TEXELEC NETWORK overlay..."
@@ -215,6 +247,28 @@ $(COMMS_VISUAL): $(SOURCE_DIR)/comms_visual_overlay.p8 $(SOURCE_DIR)/comms_visua
 		"$(SOURCE_DIR)/comms_visual_overlay.p8"
 	@cp "$(BUILD_DIR)/comms_visual_overlay.bin" "$(COMMS_VISUAL)"
 
+$(COMMS_EMOJI): $(SOURCE_DIR)/comms_emoji_overlay.p8 $(SOURCE_DIR)/comms_emoji.p8 $(SOURCE_DIR)/comms_data.p8 $(THEME_DEPS) | $(BUILD_DIR)
+	@echo "Building COMMS EMOJI artwork..."
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-out "$(BUILD_DIR)" \
+		-asmlist \
+		"$(SOURCE_DIR)/comms_emoji_overlay.p8"
+	@cp "$(BUILD_DIR)/comms_emoji_overlay.bin" "$(COMMS_EMOJI)"
+
+$(SCREEN_SAVER): $(SOURCE_DIR)/screensaver_overlay.p8 $(SOURCE_DIR)/screensaver.p8 $(INPUT_DEPS) | $(BUILD_DIR)
+	@echo "Building DEEP SPACE screensaver..."
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-out "$(BUILD_DIR)" \
+		-asmlist \
+		"$(SOURCE_DIR)/screensaver_overlay.p8"
+	@cp "$(BUILD_DIR)/screensaver_overlay.bin" "$(SCREEN_SAVER)"
+
 $(BUILD_DIR):
 	mkdir -p "$(BUILD_DIR)"
 
@@ -250,6 +304,12 @@ check:
 		-srcdirs "$(SOURCE_DIR)" \
 		-check \
 		"$(SOURCE_DIR)/program_launcher_overlay.p8"
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-check \
+		"$(SOURCE_DIR)/rolodex_overlay.p8"
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
 		-target cx16 \
@@ -304,6 +364,18 @@ check:
 		-srcdirs "$(SOURCE_DIR)" \
 		-check \
 		"$(SOURCE_DIR)/comms_visual_overlay.p8"
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-check \
+		"$(SOURCE_DIR)/comms_emoji_overlay.p8"
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-check \
+		"$(SOURCE_DIR)/screensaver_overlay.p8"
 
 run: all
 	@echo "Starting the Commander X16 emulator..."
@@ -323,10 +395,12 @@ sdcard: all
 	@mkdir -p "$(SDCARD_DIR)"
 	@rm -f "$(SDCARD_DIR)/ZZNETPICK.BIN"
 	@cp "$(PROGRAM)" "$(SDCARD_DIR)/DESKCMD.PRG"
+	@cp "$(AUTOBOOT)" "$(SDCARD_DIR)/AUTOBOOT.X16"
 	@cp "$(FILE_MANAGER)" "$(FILE_OPERATIONS)" "$(TEXT_EDITOR)" "$(PROGRAM_LAUNCHER)" \
 		"$(NETWORK_APP)" "$(NETWORK_PICKER)" "$(MARKET_APP)" "$(MARKET_NETWORK)" \
 		"$(STATE_STORE)" "$(NOTES_APP)" "$(SDCARD_DIR)/"
-	@cp "$(COMMS_APP)" "$(CHAT_NETWORK)" "$(COMMS_VISUAL)" "$(SDCARD_DIR)/"
+	@cp "$(COMMS_APP)" "$(CHAT_NETWORK)" "$(COMMS_VISUAL)" "$(COMMS_EMOJI)" \
+		"$(SCREEN_SAVER)" "$(ROLODEX_APP)" "$(SDCARD_DIR)/"
 	@echo "Ready: $(SDCARD_DIR)"
 
 clean:
@@ -351,6 +425,10 @@ clean:
 	      "$(BUILD_DIR)/program_launcher_overlay.bin" \
 	      "$(BUILD_DIR)/program_launcher_overlay.list" \
 	      "$(BUILD_DIR)/program_launcher_overlay.vice-mon-list" \
+	      "$(BUILD_DIR)/rolodex_overlay.asm" \
+	      "$(BUILD_DIR)/rolodex_overlay.bin" \
+	      "$(BUILD_DIR)/rolodex_overlay.list" \
+	      "$(BUILD_DIR)/rolodex_overlay.vice-mon-list" \
 	      "$(BUILD_DIR)/network_overlay.asm" \
 	      "$(BUILD_DIR)/network_overlay.bin" \
 	      "$(BUILD_DIR)/network_overlay.list" \
@@ -387,6 +465,14 @@ clean:
 	      "$(BUILD_DIR)/comms_visual_overlay.bin" \
 	      "$(BUILD_DIR)/comms_visual_overlay.list" \
 	      "$(BUILD_DIR)/comms_visual_overlay.vice-mon-list" \
+	      "$(BUILD_DIR)/comms_emoji_overlay.asm" \
+	      "$(BUILD_DIR)/comms_emoji_overlay.bin" \
+	      "$(BUILD_DIR)/comms_emoji_overlay.list" \
+	      "$(BUILD_DIR)/comms_emoji_overlay.vice-mon-list" \
+	      "$(BUILD_DIR)/screensaver_overlay.asm" \
+	      "$(BUILD_DIR)/screensaver_overlay.bin" \
+	      "$(BUILD_DIR)/screensaver_overlay.list" \
+	      "$(BUILD_DIR)/screensaver_overlay.vice-mon-list" \
 	      "$(FILE_MANAGER)" \
 	      "$(FILE_OPERATIONS)" \
 	      "$(TEXT_EDITOR)" \
@@ -400,4 +486,7 @@ clean:
 	      "$(COMMS_APP)" \
 	      "$(CHAT_NETWORK)" \
 	      "$(COMMS_VISUAL)" \
+	      "$(COMMS_EMOJI)" \
+	      "$(SCREEN_SAVER)" \
+	      "$(ROLODEX_APP)" \
 	      "FILEMAN.BIN"

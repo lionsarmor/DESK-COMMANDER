@@ -109,7 +109,7 @@ network_app {
         gfx_lores.fillrect(0, 18, 320, 22, theme.BLUE)
         ; Visible hardware-test revision: if R13 is absent, an older overlay is
         ; being loaded from the SD card.
-        gfx_lores.text(8, 25, theme.PAPER, iso:"TEXELEC NET SETUP R13")
+        gfx_lores.text(8, 25, theme.PAPER, iso:"TEXELEC NET SETUP R15")
         gfx_lores.fillrect(299, 22, 15, 13, theme.RED)
         gfx_lores.text(303, 25, theme.PAPER, iso:"X")
         draw_state()
@@ -227,6 +227,10 @@ network_app {
             return false
         }
 
+        ; Defensive guard for a list that became shorter after a rescan.
+        if network_mailbox.selected >= network_mailbox.count
+            network_mailbox.selected = 0
+
         ; SCAN already left one row highlighted. JOIN uses that selection
         ; directly, then asks only for the password.
         ubyte index = 0
@@ -275,6 +279,15 @@ network_app {
         if answered or network_driver.response_length > 0
             network_driver.modem_present = true
         network_mailbox.scroll = 0
+        network_mailbox.selected = 0
+        if network_mailbox.count == 0 {
+            if network_driver.response_length == 0
+                network_driver.set_response(
+                    iso:"SCAN FAILED - MODEM DID NOT REPLY")
+            else
+                network_driver.set_response(
+                    iso:"NO SSIDS RETURNED - PRESS SCAN AGAIN")
+        }
         draw_state()
         draw_response()
     }
@@ -283,11 +296,14 @@ network_app {
         ubyte output = 0
         ubyte index = 0
 
-        command[output] = 'A'
+        ; This buffer goes directly to the UART. Prog8 upper-case character
+        ; literals are PETSCII, but ZiModem's ATW command must be ASCII unless
+        ; PETSCII mode was explicitly requested. Use wire-byte values here.
+        command[output] = $41     ; ASCII A
         output++
-        command[output] = 'T'
+        command[output] = $54     ; ASCII T
         output++
-        command[output] = 'W'
+        command[output] = $57     ; ASCII W
         output++
         command[output] = '"'
         output++
@@ -337,7 +353,16 @@ network_app {
         ; Persist both success and failure so the desktop header agrees with
         ; the verified live state as soon as this overlay closes.
         save_connection_state()
-        network_mailbox.clear()
+        ; Keep the scanned list after a failed password/association attempt so
+        ; the user can retry JOIN without waiting through another scan. Once
+        ; connected, clear it so the response panel can show the assigned IP.
+        if wifi_connected
+            network_mailbox.clear()
+        ; ATI2 may echo as "ATI2" (and can look like "AT1" in the bitmap
+        ; font). It is useful while diagnosing a failure, but it is confusing
+        ; after its dotted IP reply has already proved that DHCP succeeded.
+        if wifi_connected
+            network_driver.set_response(iso:"CONNECTED - WIFI ONLINE")
         draw_state()
         draw_response()
     }
@@ -353,6 +378,8 @@ network_app {
         if network_driver.response_length > 0
             network_driver.modem_present = true
         save_connection_state()
+        if wifi_connected
+            network_driver.set_response(iso:"CONNECTED - WIFI ONLINE")
         draw_state()
         draw_response()
     }

@@ -1,5 +1,6 @@
 %import comms_data
 %import network_driver
+%import preferences
 
 ; ZiModem HTTP client for the small LAN chat protocol. The browser uses JSON;
 ; the X16 receives short pipe-delimited lines that fit its 256-byte UART cache.
@@ -18,14 +19,43 @@ chat_network {
     ubyte[32] host
     ubyte[33] action
     ubyte[33] selected
-    ubyte[33] message
-    ubyte[241] command
+    ubyte[97] message
+    ; One-byte indexing caps a ZiModem command at 255 bytes. Use nearly the
+    ; whole page so a normal 96-character sentence still fits after encoding.
+    ubyte[255] command
     ubyte[33] field_one
-    ubyte[33] field_two
+    ubyte[97] field_two
+    ubyte[33] last_selected
+    ubyte last_kind
+    ubyte last_offset
+    bool have_loaded_selection
+    bool suppress_receive_sound
+
+    sub same_text(str left, str right) -> bool {
+        ubyte index = 0
+        while left[index] != 0 and right[index] != 0 {
+            if left[index] != right[index]
+                return false
+            index++
+        }
+        return left[index] == right[index]
+    }
+
+    sub remember_selection(ubyte kind, ubyte offset) {
+        ubyte index = 0
+        while selected[index] != 0 and index < 32 {
+            last_selected[index] = selected[index]
+            index++
+        }
+        last_selected[index] = 0
+        last_kind = kind
+        last_offset = offset
+        have_loaded_selection = true
+    }
 
     sub append(str source, ubyte output) -> ubyte {
         ubyte index = 0
-        while source[index] != 0 and output < 239 {
+        while source[index] != 0 and output < 253 {
             command[output] = source[index]
             output++
             index++
@@ -41,13 +71,18 @@ chat_network {
 
     sub append_encoded(str source, ubyte output) -> ubyte {
         ubyte index = 0
-        while source[index] != 0 and output < 236 {
+        while source[index] != 0 and output < 250 {
             ubyte value = source[index]
             if (value >= $41 and value <= $5a) or
                       (value >= $61 and value <= $7a) or
                       (value >= $30 and value <= $39) or
                       value == $2e or value == $2d or value == $5f {
                 command[output] = value
+                output++
+            } else if value == $20 {
+                ; application/x-www-form-urlencoded accepts + for a space.
+                ; This keeps ordinary sentences compact on the 8-bit UART.
+                command[output] = $2b
                 output++
             } else {
                 ; Encode spaces and punctuation instead of dropping them. This
@@ -102,6 +137,47 @@ chat_network {
     }
     sub add_friend() -> bool { return simple_action(iso:"friend") }
     sub create_group() -> bool { return simple_action(iso:"group") }
+    sub remove_selected() -> bool {
+        ; Keep DEL transport and cleanup in this roomier network bank. The UI
+        ; bank is deliberately tiny and only dispatches the selected item.
+        ubyte kind = comms_data.selected_kind()
+        comms_data.selected_name(action)
+        comms_data.set_action(action)
+        bool removed
+        if kind == ASCII_F
+            removed = simple_action(iso:"unfriend")
+        else if kind == ASCII_G
+            removed = simple_action(iso:"groupleave")
+        else {
+            comms_data.set_status(iso:"SELECT ITEM", 36)
+            return false
+        }
+        if not removed {
+            comms_data.set_status(iso:"REMOVE FAILED", 36)
+            return false
+        }
+
+        action[0] = 0
+        comms_data.select_chat(0, action)
+        comms_data.clear_messages()
+        comms_data.set_composer_focused(false)
+        comms_data.set_direct_scroll(0)
+        comms_data.set_group_scroll(0)
+        removed = sync()
+        if removed
+            comms_data.set_status(iso:"REMOVED", 38)
+        return removed
+    }
+
+    sub group_action() -> bool {
+        ; Reuse the original seventh jump-table slot. A blank action means the
+        ; red DEL button; a name means "add this member". This avoids another
+        ; bank-call trampoline in the nearly full Comms UI bank.
+        comms_data.get_action(action)
+        if action[0] == 0
+            return remove_selected()
+        return add_group_member()
+    }
 
     sub add_group_member() -> bool {
         ubyte output = begin_request(iso:"groupadd")
@@ -156,13 +232,18 @@ chat_network {
         ubyte output = begin_request(iso:"messages")
         ubyte position = 0
         ubyte offset = comms_data.message_offset()
+        uword previous_signature = comms_data.message_signature()
         comms_data.selected_name(selected)
-        command[output] = '&' output++
-        command[output] = 'k' output++
-        command[output] = 'i' output++
-        command[output] = 'n' output++
-        command[output] = 'd' output++
-        command[output] = '=' output++
+        ubyte kind = comms_data.selected_kind()
+        bool notify = have_loaded_selection and not suppress_receive_sound and
+                      offset == 0 and last_offset == 0 and kind == last_kind and
+                      same_text(selected, last_selected)
+        ; Never assemble HTTP parameter names from Prog8 character literals.
+        ; On the X16 target, lower-case literals are PETSCII screen values, so
+        ; the old code sent "KIND=". Python query names are case-sensitive;
+        ; the missing kind then fell through to the server's group path. That
+        ; made group history work while every friend transcript looked empty.
+        output = append(iso:"&kind=", output)
         command[output] = comms_data.selected_kind() output++
         output = append(iso:"&target=", output)
         output = append_encoded(selected, output)
@@ -182,11 +263,15 @@ chat_network {
                 position = parse_name(position + 2, field_one, 16)
                 if network_driver.response[position] == ASCII_PIPE
                     position++
-                position = parse_name(position, field_two, 32)
+                position = parse_name(position, field_two,
+                                      comms_data.MAX_MESSAGE_LENGTH)
                 comms_data.add_message(field_one, field_two)
             }
             position++
         }
+        remember_selection(kind, offset)
+        if notify and comms_data.message_signature() != previous_signature
+            preferences.play_receive()
         return true
     }
 
@@ -202,6 +287,11 @@ chat_network {
         output = append_encoded(message, output)
         if not finish_request(output)
             return false
-        return load_messages()
+        suppress_receive_sound = true
+        bool loaded = load_messages()
+        suppress_receive_sound = false
+        if loaded
+            preferences.play_send()
+        return loaded
     }
 }

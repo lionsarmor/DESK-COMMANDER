@@ -1,475 +1,413 @@
-# DESK COMMANDER — Version 1 Roadmap
+# 🗺️ DESK COMMANDER — Version 1 Roadmap
 
 > A fast, friendly, DeskMate-inspired organizer and connected desktop for the Commander X16.
 
-## Current status
+## Current snapshot
 
-**Version:** 0.3.0 alpha
+| Item | Current target |
+|---|---|
+| Version | 0.3.0 alpha |
+| Language | Prog8 12.3.2 |
+| Assembler | 64tass 1.60.3243 |
+| X16 target | ROM/emulator r49 |
+| Display | 320×240, 256-color VERA bitmap |
+| Hardware network | TexElec Serial & ESP32 card with ZiModem |
+| Last reviewed | September 8, 2026 |
 
-**Toolchain:** Prog8 12.3.2, 64tass 1.60.3243, X16 ROM/emulator r49
+Desk Commander now builds and runs on a physical Commander X16. The TexElec
+card can be detected, Wi-Fi networks can be scanned and joined, IP status is
+available, and the connection test and public-alpha chat work. The desktop,
+organizer applications, file tools, market display, settings, and Comms are
+functional alpha software rather than static mockups.
 
-**Display:** 320×240, 256-color VERA bitmap
+The project is not V1 yet. Its largest remaining responsibilities are safe
+power-loss-resistant storage, authenticated/encrypted public communication,
+deeper editable organizer records, consistent keyboard operation, and long
+real-hardware reliability testing.
 
-**Launch:** `./run.sh`
+### Status marks
 
-**Last reviewed:** September 6, 2026
-
-The visual shell and several interaction prototypes work, and a versioned
-device-8 state image now survives normal restarts. DESK COMMANDER has now
-booted and run successfully on a physical Commander X16. General text-file
-opening/editing works, the physical TexElec UART is detected at `$9FE0`, and a
-real ZiModem `OK` response and ESP32 Firmware v4.0.2 banner have now been
-received. A bad secondary-identification gate kept Scan/Join disabled despite
-that proof, while a cold modem required a second manual Detect. The current
-build removes that gate and performs the settled retry automatically.
-Completing Scan/Join/Status testing remains the immediate P0 priority; connected apps,
-reminders, printing, and release packaging remain unfinished. Alpha builds
-intentionally contain sample records; V1 must start blank unless the user
-explicitly enables demo data.
-
-Status marks used below:
-
-- ✅ Working in the current alpha
-- 🟡 Partially implemented or represented by a functional prototype
+- ✅ Complete in the current alpha
+- 🟡 Working but incomplete or awaiting broader testing
 - ⬜ Not implemented
-- 🔬 Must be verified on real Commander X16 hardware
+- 🔬 Must be proven on physical Commander X16 hardware
 
 ## V1 product definition
 
-V1 is a cohesive personal desktop, not a full office suite. It should boot
-quickly and provide useful Notes, Calendar, Contacts, Files, Calculator,
-Settings, Comms, and Market Watch experiences through one consistent visual
-language.
+V1 is a cohesive personal desktop, not a full office suite. A new user should
+be able to boot into a responsive desktop and safely manage notes, appointments,
+contacts, files, calculations, preferences, chat, and a small market watchlist.
 
-The desktop deliberately does **not** restore the decorative `Desk / File /
-View` menu strip. The slim top identity bar, icon rail, app windows, contextual
-buttons, and Settings page are the intended interface.
+The interface is intentionally based on one foreground application beneath a
+persistent slim system bar. It uses an icon rail, glance panels, compact
+toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
+`Desk / File / View` menu is not part of the product.
 
-### Release priorities
+## What already works
 
-1. Fix ZiModem communication on the detected physical TexElec card.
-2. Protect the user's data and survive interrupted SD-card writes.
-3. Make mouse and keyboard operation equally dependable.
-4. Finish the organizer applications before expanding their scope.
-5. Share the stable network service between Comms and Market Watch.
-6. Remain responsive and readable during long real-hardware sessions.
-
-## What works today
-
-| Area | Status | Current alpha behavior |
+| Area | Status | Current alpha result |
 |---|---:|---|
-| Build and launch | ✅ | Pinned toolchain plus confirmed SD-card launch on a physical Commander X16 |
-| Splash and branding | ✅ | Native VERA splash, version, creator, keyboard/mouse dismissal |
-| Desktop | ✅ | Icon rail, Notes/Calendar glance cards, rotating Market Watch cache, RTC clock, sound/Wi-Fi indicators |
-| Mouse | ✅ | Hardware pointer, click edges, hit testing, three themed pointer styles |
-| Keyboard | 🟡 | Desktop arrow selection and app-specific keys work; universal focus does not |
-| Rendering | 🟡 | Desktop and apps render on physical hardware; long-session and edge-case testing remains |
-| Notes | 🟡 | Six short saved notes with Add, Delete, wheel/arrow scrolling, and scrollbar |
-| Calendar | 🟡 | Month navigation and 24 editable, color-coded saved events with a title-field dirty region |
-| Rolodex | 🟡 | Search, dirty-region scrolling, contact details, and persistent deletion state over demo contacts |
+| Build and launch | ✅ | One-command emulator run, SD package, root shortcut, `AUTOBOOT.X16`, and app-directory recovery |
+| Splash and desktop | ✅ | Branded splash, icon rail, glance panels, clock, status icons, mouse and arrow-key launching |
+| Themes and pointer | ✅ | Three saved themes and three saved pointer styles |
+| Sound and clock | ✅ | Saved sound toggle, interface/chat sounds, and working 12/24-hour display |
+| Notes | 🟡 | Six saved short notes with add/delete and dirty-region scrolling |
+| Calendar | 🟡 | Month navigation and 24 saved editable color-coded events |
+| Rolodex | 🟡 | Searchable/scrollable cards, Add/Delete, and four persistent custom contacts |
 | Calculator | ✅ | Mouse and keyboard arithmetic, decimals, backspace, and divide-by-zero handling |
-| File Manager | 🟡 | Device-8 listing, file/folder icons, paging, file operations, stable directory restoration, text editing, and external PRG launch |
-| Text Editor ++ | 🟡 | 2 KB multiline editor with pointer placement, Save, Save As, dirty state, and clean return to Files |
-| Settings | 🟡 | Theme, pointer, sound, and clock persist; Network and About open |
-| Comms | 🟡 | Multi-bank public-alpha chat plus manager console; inline composition, automatic receive polling, rolling 100-message history, ASCII-safe parsing, saved identity/host, persistent contacts, presence colors, diagnostics, and two-way messages |
-| Market Watch | 🟡 | Saved watchlist/quotes, cross-power-cycle public-asset comparison, Finnhub HTTPS, and three-row rotation |
-| TexElec network | 🟡 | Physical UART, scan, selectable SSIDs, join, and link status work; the R13 screen adds flicker-free list scrolling and immediate action feedback |
-| Persistence | 🟡 | Versioned `DCSTATE.BIN` preserves relevant alpha state after normal shutdown; atomic recovery remains |
-| Printing and clipboard | ⬜ | Not implemented |
+| File Manager | 🟡 | Real device-8 browsing, file/folder creation, rename, move, delete, text open, and PRG launch |
+| Text Editor ++ | 🟡 | 2 KB multiline editor, mouse placement, Save, Save As, and dirty-file warning |
+| Deep Space Screensaver | ✅ | Full-screen parallax stars and a moving cartoon fighter/orb laser chase with instant keyboard/mouse exit |
+| Network Setup | 🟡 | Real `$9FE0` UART detection, ZiModem, scrollable scan, join, IP status, disconnect, and connection test |
+| Comms | 🟡 | Saved user/host, friends, groups, direct/group messaging, polling, history, presence, sounds, and five emoji |
+| Browser chat | 🟡 | Public X16-style tester plus protected RODDY manager console |
+| Market Watch | 🟡 | Saved 12-symbol list/cache, desktop rotation, keyless assets, and optional Finnhub equities |
+| Persistence | 🟡 | Versioned `DCSTATE.BIN` survives normal restart; interrupted-write recovery is unfinished |
+| Rendering stability | 🟡 | Dirty regions reduce flashing; banked emoji XOR/palette corruption is fixed; full overlay audit remains |
+| Clipboard and printing | ⬜ | Not implemented |
 
-## Unfinished V1 work
+## Priority order to reach V1
 
-### 0. P0 — Stabilize physical ZiModem communication
+1. Protect user data and eliminate bank/memory corruption risks.
+2. Secure public identities and messages.
+3. Finish the core organizer record workflows.
+4. Make mouse and keyboard behavior consistent everywhere.
+5. Harden Files, Text Editor ++, networking, Comms, and Market Watch.
+6. Complete real-hardware soak tests, documentation, and release packaging.
 
-The TexElec card now detects, joins Wi-Fi, completes the connection test, and
-reaches the LAN chat server on physical hardware. Reliability remains P0.
+## P0 — Release blockers
 
-- [ ] Run the official ROMTERM at `$9FE0`, 115200 baud, 8N1, and RTS/CTS; record
-      the exact working configuration and ZiModem firmware reported by `ATI`.
-- [x] Compare a working X16 UART implementation with `network_driver.p8` and
-      align divisor, FIFO, modem-control, CTS/RTS, and Option Pin A state.
-- [x] Force a known ZiModem command state before identification: command mode,
-      responses enabled, verbose replies, ASCII translation, and known line endings.
-- [x] Accept both verbose `OK` and terse numeric `0` success replies.
-- [x] Accept a final `OK` without CR/LF after the UART becomes quiet.
-- [ ] Detect and explain quiet mode, unexpected baud, stream mode, PETSCII mode,
-      transmit timeout, receive timeout, and malformed responses.
-- [x] Show a bounded raw-response diagnostic view instead of replacing every
-      failure with `ZIMODEM DID NOT ANSWER`.
-- [ ] Add selectable baud rates for recovery, while keeping 115200 the default.
-- [ ] Verify `ATI4`, Wi-Fi scan, join, saved configuration, IP status, DNS ping,
-      reconnect after restart, and recovery after Wi-Fi loss.
-- [ ] Verify ZiModem HTTPS download and one Finnhub quote on the physical card.
-- [ ] Run sustained transfers and confirm the mouse, clock, sound, and screen do
-      not freeze or corrupt while UART traffic is active.
-- [ ] If ROMTERM also fails, check card revision/riser hardware and follow
-      TexElec's pre-October-2024 replacement guidance before changing app code.
+### 1. Data integrity and SD-card recovery
 
-### 1. Shared input and interface
+- [x] Define a bounded, signed, versioned `DCSTATE.BIN` format.
+- [x] Persist theme, cursor, sound, clock, Notes, Calendar, Rolodex deletion
+      state, network state, Market Watch, and Comms identity/host.
+- [ ] Save to a temporary file before replacing the known-good state file.
+- [ ] Keep one recoverable backup of important organizer data.
+- [ ] Verify the completed temporary file before promoting it.
+- [ ] Refuse unknown/newer state versions without modifying them.
+- [ ] Handle missing, corrupt, removed, full, and write-protected media clearly.
+- [ ] Add an in-app backup/restore workflow or document a safe manual procedure.
+- [ ] 🔬 Interrupt saves and power-cycle hardware repeatedly; always recover the
+      last known-good state.
+- [ ] Remove personal/demo records from production first boot.
+- [ ] Add an explicit optional **Load Demo Data** action.
+
+### 2. Banked-memory and rendering safety
+
+- [x] Keep the main PRG below the X16 I/O window and move large apps into banks.
+- [x] Restore the starting directory so loadable app files do not become
+      `MISSING` after File Manager navigation.
+- [x] Fix Comms emoji palette corruption caused by uninitialized bank-17
+      `gfx_lores.eor_mode`; every emoji entry point now selects replacement mode.
+- [ ] Audit every loadable library for BSS/global values that the main startup
+      cannot initialize.
+- [ ] Explicitly initialize required graphics, input, parser, and state flags at
+      every banked app entry point.
+- [ ] Add guard values around shared golden-RAM and VERA buffers where practical.
+- [ ] Exercise every app in changing orders and confirm no app disappears,
+      inherits stale state, corrupts colors, or crashes.
+- [ ] 🔬 Run multi-hour mouse, scroll, file, network, and Comms sessions on real
+      hardware while watching for memory and bank corruption.
+
+### 3. Public chat authentication and security
+
+- [x] Deploy the public Ubuntu service under an unprivileged system user.
+- [x] Use key-only SSH, firewall defaults, systemd, Caddy, and HTTPS for the web console.
+- [x] Keep the X16 host editable for official, community, and private servers.
+- [x] Document the bounded RetroWire protocol direction.
+- [ ] Add real account creation, sign-in, recovery, and per-user credentials.
+- [ ] Prevent username impersonation on every read and write endpoint.
+- [ ] Enforce friendship, ownership, membership, and manager authorization server-side.
+- [ ] Move state-changing operations and message bodies out of GET query strings.
+- [ ] Implement device provisioning and challenge-response authentication.
+- [ ] Implement ChaCha20-Poly1305 sessions, replay protection, key rotation, and revocation.
+- [ ] Add request/body limits, rate limits, safe logs, moderation tools, and abuse controls.
+- [ ] Add database backup, restore, migration, and malformed-record recovery tests.
+- [ ] Remove wildcard CORS and expose only reviewed production endpoints.
+- [ ] Keep the current plaintext port-8088 bridge clearly labeled test-only until replaced.
+- [ ] Never store credentials, Wi-Fi passwords, or session secrets in unprotected logs.
+
+## P1 — Core desktop completion
+
+### 4. Shared input and interface
 
 - [ ] Create one reusable focus model for buttons, lists, fields, dates, and dialogs.
-- [ ] Make `Tab`, `Shift+Tab`, arrows, `Enter`, and `Esc` consistent in every app.
-- [ ] Add visible keyboard focus to every interactive control.
-- [ ] Add reusable text fields with cursor movement, insertion, deletion, masking,
-      horizontal scrolling, and maximum-length handling.
-- [ ] Add reusable confirmation, warning, error, and unsaved-change dialogs.
-- [ ] Give pressed and disabled buttons distinct visual states across every app. Network Setup now gives immediate in-panel progress feedback.
-- [ ] Add wheel scrolling where lists exceed the visible area.
-- [ ] Decide whether double-click and right-click add enough value for V1.
-- [ ] Audit hit boxes at screen edges and after every theme/pointer change.
-- [ ] Remove remaining full-screen redraws from routine interactions.
-- [ ] 🔬 Check cursor appearance, redraw flicker, sound volume, and input latency on hardware.
+- [ ] Support `Tab`, `Shift+Tab`, arrows, `Enter`, and `Esc` consistently.
+- [ ] Draw visible keyboard focus on every interactive control.
+- [ ] Create reusable fields with insertion, deletion, cursor movement, masking,
+      horizontal scrolling, case preservation, and length limits.
+- [ ] Standardize confirmation, warning, error, busy, and unsaved-change dialogs.
+- [ ] Give pressed, busy, selected, and disabled controls clear visual states.
+- [x] Add wheel/arrow scrolling and dirty-region redraws to major lists.
+- [ ] Add missing scrollbars and wheel support wherever content can exceed a view.
+- [ ] Audit every hit box after all themes and pointer styles.
+- [ ] Remove remaining harsh full-screen redraws from routine interactions.
+- [ ] 🔬 Measure pointer feel, click feedback, sound volume, and redraw latency.
 
-### 2. Desktop shell
+### 5. Desktop shell and Settings
 
-- [ ] Replace hard-coded glance-note samples with the user's real Notes data.
-- [x] Replace demo market values with cached network results.
-- [ ] Expand the current offline/error display with loading, timestamps, rate-limit, and richer stale-data states.
-- [x] Preserve desktop theme, pointer, sound, and clock preferences after restart.
-- [ ] Decide whether restoring the last selected desktop section improves startup.
-- [ ] Make every launcher and glance panel keyboard reachable.
-- [ ] Add consistent return-to-desktop behavior and unsaved-work checks.
-- [x] Show compact sound and last-known Wi-Fi status indicators in the top bar.
-- [ ] Decide whether the top bar should also show date and alarm indicators.
+- [ ] Replace glance-note stand-ins with the user's actual Notes data.
+- [x] Show cached Market Watch results and a small refresh control.
+- [ ] Add loading time, last-update time, rate-limit, offline, and stale states.
+- [x] Persist and apply theme, pointer, sound, clock, and Comms host/user settings.
+- [ ] Make every desktop launcher and glance panel keyboard reachable.
+- [ ] Add uniform return-to-desktop and unsaved-work handling.
+- [ ] Add a confirmed **Restore Defaults** action.
+- [ ] Decide whether a separate Storage settings page adds useful V1 behavior.
+- [ ] Decide whether the system bar needs date/reminder indicators.
+- [x] Shrink Market Watch and add a large illustrated Screensaver launcher
+      while keeping the core safely below its reserved network workspace.
+- [ ] Decide whether an optional idle timer should start the Screensaver;
+      manual launch is complete.
 
-### 3. Storage and file safety
+### 6. Notes
 
-- [x] Build a small CMDR-DOS/KERNAL file service for device 8.
-- [x] Enumerate real directory entries instead of displaying sample rows.
-- [x] Implement paged directory navigation.
-- [x] Implement New Folder, Rename, and confirmed file/empty-folder Delete.
-- [x] Implement New File with user-selected names and extensions.
-- [x] Implement same-volume Move using CMDR-DOS rename-to-path behavior.
-- [x] Implement general file Open plus Text Editor ++ Save and Save As.
-- [x] Launch CMDR-DOS PRG/AUTOBOOT entries and leave ordinary files in Text Editor++.
-- [x] Restore the starting directory when Files closes so app overlays do not become `MISSING`.
-- [ ] Implement Copy and optional file-type filtering/default-app rules.
-- [ ] Add destination browsing to Move instead of requiring a typed path.
-- [ ] Confirm destructive operations and explain failures in plain language.
-- [x] Define a versioned bounded state image for preferences, notes, calendar, contacts, network, and market data.
-- [ ] Use temporary-file writes before replacing the last known-good file.
-- [ ] Keep a recoverable backup for important organizer data.
-- [ ] Reject unknown/newer formats without modifying them.
-- [ ] Handle missing, removed, full, corrupt, and write-protected media.
-- [ ] Provide an explicit Demo Data command; normal first launch must be blank.
-- [ ] 🔬 Test repeated saves and power-loss recovery on a real SD card.
+- [x] Provide six saved slots with Add, Delete, scrolling, and a scrollbar.
+- [ ] Add titles and longer multiline note bodies.
+- [ ] Add New, Open, Save, Save As, Rename, and confirmed Delete.
+- [ ] Track dirty notes and warn before discarding changes.
+- [ ] Add word wrap, Find, and at least one level of Undo.
+- [ ] Add plain-text import/export with documented character conversion.
+- [ ] Decide whether Quick Notes and full Notes share one record model.
 
-### 4. Notes
+### 7. Calendar, appointments, and tasks
 
-- [x] Expand the short-note list to six saved records with a four-row scrolling viewport.
-- [ ] Add note titles, longer bodies, and multiline body editing.
-- [ ] Add New, Open, Save, Save As, Rename, and Delete confirmation.
-- [ ] Track dirty notes and warn before discarding edits.
-- [ ] Add word wrap, Find, and at least one-level Undo.
-- [ ] Add shared Cut, Copy, and Paste.
-- [ ] Decide between one full editor plus Quick Notes or a unified note model.
-- [ ] Add plain-text import/export and character-conversion rules.
-
-### 5. Calendar, appointments, and tasks
-
-- [x] Limit event-title typing redraws to the input-field dirty region.
-- [ ] Read today's month/year/day from the RTC rather than fixed alpha defaults.
-- [ ] Support more than one event on the same date.
-- [ ] Add optional start time, end time, location, contact, and longer description.
-- [ ] Add a day-agenda view for viewing all events on a selected date.
-- [ ] Add task completion/reopen state.
+- [x] Navigate months with visible previous/next controls.
+- [x] Add, view, edit, color-code, delete, save, and reload titled events.
+- [x] Reflect saved appointments in the desktop glance calendar.
+- [x] Restrict event-title editing to its dirty region.
+- [ ] Read Today from the RTC instead of fixed alpha defaults.
+- [ ] Store more than one event on the same date.
+- [ ] Add start/end time, location, linked contact, and longer description.
+- [ ] Add a day-agenda view for all events on the selected date.
+- [ ] Add task completion and reopening.
 - [ ] Add daily, weekly, monthly, and yearly recurrence.
-- [ ] Add reminder times and visible/audible alarm dialogs.
-- [ ] Poll alarms safely while any application is open.
-- [x] Persist and reload events; rebuild the at-a-glance highlights from saved data.
-- [ ] Add capacity-full and invalid-date messages.
+- [ ] Add visible and optional audible reminder dialogs.
+- [ ] Poll reminders safely while any application is open.
 - [ ] Test leap years, month/year boundaries, recurrence, and midnight rollover.
 
-### 6. Rolodex and contacts
+### 8. Rolodex and contacts
 
-- [ ] Replace compiled demo contacts with editable user records.
-- [ ] Add New, Edit, Duplicate, Save, and confirmed Delete.
-- [ ] Store name, organization/role, phone, email, social handle, address, and notes.
+- [x] Start blank; search, scroll, inspect, and delete saved contacts.
+- [x] Add and immediately save four complete user-created contact cards.
+- [x] Store name, role/organization, phone, email, and social handle.
+- [ ] Add Edit, Duplicate, and confirmed Delete workflows.
+- [ ] Expand user-created capacity and add address and notes.
 - [ ] Sort alphabetically and preserve selection while filtering.
-- [ ] Make search cover every visible field.
-- [ ] Add shared clipboard actions for individual fields and complete addresses.
+- [ ] Search every visible field.
 - [ ] Add documented CSV or delimited-text import/export.
-- [ ] Let Calendar choose a contact where useful.
-- [ ] Persist contacts and start with an empty Rolodex in production builds.
+- [ ] Allow Calendar to attach a contact where useful.
 
-### 7. Calculator and desk accessories
+### 9. File Manager and Text Editor ++
 
-- [ ] Add calculator memory keys (`MC`, `MR`, `M+`, and `M-`).
-- [ ] Define rounding, display-length, overflow, and negative-number behavior.
-- [ ] Preserve or intentionally reset calculator state when the overlay closes.
-- [ ] Add an alarm-status accessory once Calendar reminders exist.
-- [ ] Test all calculator input from both keyboard and mouse.
+- [x] Enumerate real device-8 directories with file/folder icons and scrolling.
+- [x] Create files with user-selected extensions and create folders.
+- [x] Open, rename, move, and confirm deletion.
+- [x] Recognize `.PRG` and `.X16` entries and launch them through a protected
+      Golden-RAM loader that cannot be overwritten by the incoming program.
+- [x] Open ordinary files in Text Editor ++ and return cleanly to Files.
+- [x] Support multiline editing, mouse placement, Save, Save As, and dirty warnings.
+- [ ] Add Copy.
+- [ ] Add destination browsing instead of typed Move paths.
+- [ ] Add sorting, filtering, file-type details, and default-app rules.
+- [ ] Add Find, clipboard actions, and Undo to Text Editor ++.
+- [ ] Support larger documents with bounded paging or streaming.
+- [ ] Use temporary replacement and backup for edited files.
+- [ ] Explain DOS and media failures in plain language.
 
-### 8. Settings and preferences
+### 10. Calculator and shared accessories
 
-- [x] Save theme, cursor style, sound, and 12/24-hour selection.
-- [x] Apply saved settings before the splash/desktop becomes visible.
-- [ ] Add keyboard focus and activation inside Settings and its dialogs.
-- [ ] Add a Restore Defaults action with confirmation.
-- [ ] Decide whether Storage needs a separate settings page after File Manager works.
-- [x] Add the default card address and connection controls described below.
-- [x] Keep About and splash version/copyright text synchronized through `appmeta.p8`.
-
-### 9. TexElec X16 Serial & ESP32 networking
-
-Target hardware: [TexElec Commander X16 921.6Kbps Serial & ESP32 Network Card](https://texelec.com/product/commander-x16-serial-network-card/), using its preinstalled [ZiModem firmware](https://github.com/bozimmerman/Zimodem).
-
-- [x] Implement TL16C2550/16450-compatible UART register access.
-- [x] Probe the default network UART at IO7-low `$9FE0` without hanging when absent.
-- [ ] Allow manual selection of the card's other DIP-switch I/O ranges.
-- [x] Initialize the network port at 115200 baud with RTS/CTS flow control.
-- [x] Keep ZiModem option pin A high as required for normal command/stream behavior.
-- [ ] Build bounded transmit/receive ring buffers and line parsing.
-- [ ] Add cancellation, a response log, and stronger overflow/error handling beyond the current bounded timeouts.
-- [x] Use `ATI4` to identify ZiModem and read its firmware/version response.
-- [ ] Make the identification probe tolerate/reset saved ZiModem modes and
-      succeed on the physically detected card.
-- [ ] Add parsed signal-strength and security indicators to scanned access points.
-- [x] Parse up to ten scan results into one highlighted, scrollable SSID list
-      with mouse, arrow-key, and wheel selection; keep a masked,
-      case-preserving password field.
-- [x] Limit SSID scrolling and selection redraws to the black list-panel dirty
-      region, avoiding the harsh full-window flash seen on real hardware.
-- [x] Replace overflowing Network button labels with distinct colored action
-      icons and show Detecting, Scanning, Connecting, Checking, and
-      Disconnecting feedback before bounded modem operations begin.
-- [x] Connect with the appropriate `ATW"SSID,PASSWORD"` command.
-- [x] Remember the last successful SSID and last-confirmed link indicator without storing the password.
-- [ ] Expand the working `ATI2` IP check to show router and richer connection state.
-- [x] Test connectivity from Comms with a disposable TCP connection to
-      Cloudflare's numeric `1.1.1.1:443` endpoint, then close it with `ATH`.
-- [x] Separate missing modem, connection failure, and UART timeout results;
-      avoid treating an unreliable ICMP response as Wi-Fi status.
-- [ ] Save successful modem configuration with `AT&W` only after confirmation.
-- [x] Never save or display the Wi-Fi password in DESK COMMANDER's own plain-text files.
-- [ ] Complete clear Card Missing, Modem Not Ready, Wi-Fi Failed, DNS Failed,
-      Timed Out, and Offline states.
-- [ ] Expose one shared connection API to Comms and Market Watch.
-- [x] Preserve/restore X16 RAM-bank state around the loadable Network Setup app.
-- [ ] 🔬 Soak-test repeated scan, reconnect, Comms sync/send, and Market Watch
-      traffic on the physical card without UI freezes or stale sessions.
-
-### 10. Comms
-
-- [x] Replace compiled demo people/rooms with server-backed entries.
-- [x] Save offline friend names without requiring an active account first.
-- [ ] Add X16-side friend removal/group leave, editing, and ordering.
-- [x] Add friend, group, and group-member creation flows.
-- [x] Add a working composer with keyboard editing and Send behavior.
-- [x] Define and implement the first bounded LAN HTTP chat protocol/server contract.
-- [ ] Implement connect, authentication, reconnect, disconnect, and logout flows.
-- [x] Route network traffic through the TexElec/ZiModem HTTP service.
-- [x] Persist bounded conversation history atomically on the alpha Python server.
-- [x] Save the X16 username and server address in `DCSTATE.BIN`.
-- [x] Consolidate duplicate Servers and group chats into one Groups model, with
-      automatic migration of existing server data.
-- [x] Add scrollable Friend and Group lists with manual Sync/Test feedback.
-- [x] Implement online, away, offline, and connection-error colors.
-- [ ] Add unread indicators and a background presence heartbeat on the X16.
-- [ ] Prevent a slow connection from freezing mouse, clock, alarms, or redraws.
-- [ ] Keep credentials out of logs and unprotected organizer files.
-- [x] Choose one bounded V1 room model: Groups.
-- [x] Add browser-side friend removal and group-leave controls.
-- [x] Add browser X16 activity monitoring and compact-protocol preview.
-
-#### Public connectivity and server hardening
-
-- [x] Fix ZiModem LAN downloads to use native `AT&G"HOST:PORT/path"` syntax.
-- [x] Keep local server data atomic and persistent in `server/chat-data.json`.
-- [x] Provision the public Ubuntu Droplet and a non-root `deskcmd` service user.
-- [x] Deploy the modular FastAPI/SQLite backend foundation under systemd.
-- [x] Enable key-only SSH and a deny-by-default firewall; keep unfinished app
-      ports private during development.
-- [x] Draft the bounded RetroWire v1 handshake, limits, and command families.
-- [ ] Implement and test device provisioning, challenge-response authentication,
-      ChaCha20-Poly1305 sessions, replay protection, and revocation.
-- [ ] Open the RetroWire TCP port only after the security acceptance tests pass.
-- [ ] Replace the temporary hostname with a permanent branded domain while
-      retaining Caddy-managed HTTPS for the maintenance console.
-- [x] Deploy the authenticated RODDY master console through Caddy/HTTPS at the
-      temporary `sslip.io` hostname.
-- [x] Publish the bounded port-8088 X16 compatibility bridge for physical
-      end-to-end chat testing, with a visible plaintext-alpha warning.
-- [x] Keep the X16 HOST value editable so official, community, and private
-      compatible servers remain possible.
-- [x] Let the manager enumerate every user/friend/group and initiate a direct
-      conversation that automatically appears on the recipient retro client.
-- [x] Add a compact manager-console group tester that creates test users, adds
-      them to the selected group, and sends messages under each test name.
-- [ ] Migrate validated LAN-server chat records into the public database.
-- [ ] Accept a saved hostname/HTTPS origin in addition to a 15-character IPv4
-      LAN address; do not append port 8088 when an HTTPS origin supplies 443.
-- [ ] Add authenticated sessions so a remote caller cannot impersonate any
-      username merely by putting it in a URL.
-- [ ] Enforce owner/member authorization for friend, group, and delete
-      operations on every server endpoint.
-- [ ] Move state-changing operations and message text out of GET query strings.
-- [ ] Put the public service behind TLS and remove wildcard CORS.
-- [ ] Add request-size limits, rate limits, audit-safe logs, backup/restore, and
-      malformed-data recovery before exposing the service to the internet.
-- [ ] Add authenticated delete/leave flows for friends, groups, and accounts.
-- [ ] Choose a stable deployment: a public VPS with a fixed address, or a named
-      tunnel/domain. Use a temporary tunnel only for short hardware tests.
-- [ ] Test local hotspot, isolated guest Wi-Fi, lost-link, reconnect, server
-      restart, and power-cycle behavior on the physical Commander X16.
-
-### 11. Market Watch
-
-- [x] Choose and document Finnhub's compact quote endpoint; users supply keys subject to their own plan limits.
-- [x] Add keyless whole-dollar prices for Gold (`XAU`), Silver (`XAG`), and Bitcoin (`BTC`) through Gold API, with numeric movement measured from the previous refresh.
-- [ ] 🔬 Confirm ZiModem HTTPS and the Finnhub endpoint on the physical TexElec card.
-- [x] Add a saved 12-symbol watchlist with Add and Remove; preserve existing entries and suggest GOOG, MSFT, TSLA, XAU, XAG, and BTC.
-- [x] Fetch and parse symbol, last price, and percentage change.
-- [x] Cache the latest result in VERA RAM and show explicit offline values on failure.
-- [x] Add manual three-quote refresh, a compact desktop refresh control with busy feedback, and cached 30-second page rotation.
-- [ ] 🔬 Confirm the XAU/XAG/BTC keyless HTTPS responses on the physical TexElec card.
-- [ ] Add quote timestamps and an optional conservative automatic network-refresh interval.
-- [ ] Handle malformed replies, unavailable symbols, rate limits, and long values.
-- [x] Label potentially delayed data honestly and document that it is not trading guidance.
-- [ ] Keep the desktop glance view readable when fewer or more symbols are configured.
-
-### 12. Shared clipboard and printing
-
-- [ ] Implement a bounded text clipboard shared by Notes, Calendar, and Rolodex.
+- [x] Implement basic arithmetic, decimals, keyboard entry, and mouse entry.
+- [ ] Add `MC`, `MR`, `M+`, and `M-`.
+- [ ] Define rounding, overflow, negative-number, and display-length behavior.
+- [ ] Decide whether calculator state should persist when closed.
+- [ ] Add a bounded clipboard shared by Notes, Calendar, Rolodex, and the editor.
 - [ ] Define PETSCII/ASCII conversion and truncation behavior.
-- [ ] Add Copy/Paste commands to applicable fields.
-- [ ] Select a basic printer output path and supported character set.
-- [ ] Add basic Notes printing.
-- [ ] Add calendar/contact printing only if the core release is stable.
+- [ ] Consider basic printer support only after core V1 stability.
 
-### 13. Documentation, packaging, and release
+## P2 — Connected applications and polish
 
-- [x] Write installation instructions for emulator and SD-card use.
-- [ ] Document every keyboard shortcut and mouse action.
-- [ ] Document data locations, formats, backup, recovery, and upgrades.
-- [ ] Document TexElec card DIP-switch, antenna, Wi-Fi, and troubleshooting steps.
-- [ ] Add licenses and attribution for code, fonts, art, and third-party firmware links.
-- [ ] Add automated smoke checks where practical and a manual regression checklist.
-- [ ] Test minimum/current supported ROMs and record the final requirement.
-- [ ] Test clean first run, upgrade, missing data, demo data, and corrupt data.
-- [x] Produce an SD-card-ready runtime folder with `make sdcard`.
-- [ ] Produce signed/versioned release archives.
-- [ ] Publish known limitations and tag a reproducible V1 source/binary release.
+### 11. TexElec/ZiModem networking
+
+- [x] Probe the default network UART at IO7-low `$9FE0` without hanging if absent.
+- [x] Initialize 115200 baud, 8N1, RTS/CTS, and required option-pin behavior.
+- [x] Accept verbose `OK`, terse `0`, banners ending in `READY`, and final replies
+      without CR/LF.
+- [x] Recover from the cold-start banner without requiring a second Detect press.
+- [x] Parse up to ten SSIDs into a highlighted scrollable dirty-region list.
+- [x] Preserve password case during entry and never save/display the password.
+- [x] Join Wi-Fi, report IP status, disconnect, and run a useful pass/fail test.
+- [x] Show immediate Detecting/Scanning/Connecting/Checking/Disconnecting feedback.
+- [ ] Add selectable recovery baud rates while keeping 115200 as the default.
+- [ ] Detect quiet, stream, PETSCII, saved-baud, and malformed-response states.
+- [ ] Add bounded ring buffers, cancellation, fuller logs, and overflow handling.
+- [ ] Show signal strength, security, gateway, and richer connection details.
+- [ ] Allow manual selection of supported alternate card DIP-switch addresses.
+- [ ] Expose one nonblocking shared connection service to Comms and Market Watch.
+- [ ] 🔬 Verify reconnect after boot, Wi-Fi loss/recovery, repeated scan/join,
+      sustained transfers, DNS, HTTPS, chat, and quote traffic.
+
+### 12. Comms
+
+- [x] Save username/host locally and friends/groups/history on the selected server.
+- [x] Add persistent offline friends, group creation, member addition, removal,
+      group leave, and protected WELCOME membership.
+- [x] Provide a pop-up scrollable conversation chooser and full-width transcript.
+- [x] Send and receive direct and group messages in the same bounded scrollable view.
+- [x] Poll on conversation selection, Send, Sync, and approximately every five seconds.
+- [x] Assign the local user green and other senders stable non-black colors.
+- [x] Play optional click/send/receive sounds.
+- [x] Support 96-character composition with word-aware wrapping.
+- [x] Draw smile, frown, wink, angry, and extra-happy faces locally and translate
+      them to Unicode in web clients.
+- [x] Provide the X16-style public tester and RODDY master console.
+- [x] Bound ordinary alpha accounts to 8 friends, 4 groups, 32 group members,
+      and 100 retained messages per conversation.
+- [ ] Add authenticated connect, reconnect, disconnect, and logout flows.
+- [ ] Add unread counts, background presence heartbeat, and message timestamps.
+- [ ] Add friend/group editing and ordering.
+- [ ] Prevent slow network calls from blocking mouse, clock, reminders, and redraws.
+- [ ] Migrate validated alpha records into the production database safely.
+- [ ] Support a saved hostname/HTTPS origin after the secure X16 transport is ready.
+- [ ] Replace the temporary `sslip.io` address with a branded domain.
+
+### 13. Market Watch
+
+- [x] Save up to 12 symbols and default alpha testing to GOOG, MSFT, and TSLA.
+- [x] Add/remove symbols, scroll the list, and rotate desktop groups of three.
+- [x] Fetch and parse symbol, whole price, and movement.
+- [x] Preserve the last successful numeric baseline across power cycles.
+- [x] Support keyless XAU, XAG, and BTC plus a user-supplied Finnhub key.
+- [x] Add manual refresh and a compact desktop refresh button with busy feedback.
+- [ ] 🔬 Verify keyless and Finnhub HTTPS responses on the physical TexElec card.
+- [ ] Add timestamps and an optional conservative automatic refresh interval.
+- [ ] Handle invalid symbols, malformed replies, unavailable values, rate limits,
+      long numbers, and stale caches clearly.
+- [ ] Keep the glance panel balanced with fewer than three configured symbols.
+- [x] Label market information as potentially delayed and not trading guidance.
+
+### 14. Documentation, packaging, and release
+
+- [x] Provide emulator, build, SD deployment, BASIC launch, and app-launcher instructions.
+- [x] Produce a complete SD-ready directory with `make sdcard` and verified `deskbuild` deployment.
+- [ ] Document every keyboard shortcut and mouse action in one compact manual.
+- [ ] Document data files, backups, recovery, migration, and clean uninstall.
+- [ ] Document TexElec switches, antenna, Wi-Fi setup, firmware recovery, and troubleshooting.
+- [ ] Add complete licenses and attribution for code, fonts, art, services, and firmware links.
+- [ ] Add automated smoke tests where practical and a manual regression checklist.
+- [ ] Record final supported ROM, VERA, and SMC versions after hardware testing.
+- [ ] Test clean first boot, upgrades, missing state, corrupt state, and optional demo data.
+- [ ] Publish known limitations and reproducible signed/versioned archives.
 
 ## Milestones
 
 ### M0 — Foundation ✅
 
-Prog8 toolchain, VERA mode, splash, desktop, clock, pointer, palette, and one-command
-build/run are established.
+Prog8 toolchain, graphics mode, splash, desktop, palette, mouse, clock, build,
+emulator, and physical SD launch are established.
 
-### M1 — Interaction-complete alpha
+### M1 — Functional alpha ✅
 
-Finish common focus, text fields, dialogs, scrolling, keyboard parity, and remaining
-dirty-region rendering. Exit when every current alpha screen can be operated without
-the mouse and normal edits do not flash the entire display.
+Every major V1 application exists and performs a useful workflow. Physical
+TexElec Wi-Fi and two-way public-alpha chat are demonstrated.
 
 ### M2 — Safe persistent organizer
 
-Implement file services and versioned formats, then persist Settings, Notes,
-Calendar, and Rolodex. Exit when a restart preserves data and interrupted-save tests
-retain the last known-good copy.
+Complete atomic writes, backups, recovery, blank first boot, and editable
+Notes/Calendar/Contacts. Exit when interrupted-save tests retain a known-good copy.
 
-### M3 — Organizer feature completion
+### M3 — Interaction-complete desktop
 
-Finish long Notes, multi-event Calendar/day agenda/tasks/reminders, editable Contacts,
-shared clipboard, and calculator memory. Exit when the complete offline organizer
-journey works on emulator and hardware.
+Finish common focus, fields, dialogs, scrolling, keyboard parity, and remaining
+dirty regions. Exit when every required workflow works without a mouse and
+ordinary edits do not flash the display.
 
-### M4 — TexElec network foundation
+### M4 — Secure connected services
 
-Detect and initialize the TexElec card, configure Wi-Fi through ZiModem, and expose a
-non-blocking shared connection service. Exit when the app can reconnect after restart,
-report its IP/status, and recover cleanly from absent hardware or lost Wi-Fi.
-The physical UART-detection half is confirmed; modem command/response is the active
-P0 blocker for completing this milestone.
+Finish authenticated accounts, authorization, encrypted RetroWire sessions,
+nonblocking shared networking, and hardened server storage.
 
-### M5 — Connected applications
+### M5 — Feature-complete V1 beta
 
-Connect Market Watch to its selected feed and Comms to its defined service. Exit when
-both share the card safely, show honest offline/stale states, and cannot freeze the UI.
+Finish file/editor safety, organizer depth, reminders, Comms polish, and Market
+Watch error states. Freeze visible behavior and data formats.
 
-### M6 — Integration and real-hardware hardening
+### M6 — Hardware release candidate
 
-Unify input and errors, exercise alarms during every app, measure memory/performance,
-and run long sessions on a real X16. Fix all crash, data-loss, navigation, networking,
-and alarm defects.
-
-### M7 — V1 release candidate
-
-Freeze file formats and visible behavior, remove unintended demo data/placeholders,
-finish documentation, package releases, publish known limitations, and complete the
-acceptance journey below.
+Run full regression and long soak tests on physical X16 hardware, repair every
+crash/data-loss/network/bank defect, finish documentation, and package the release.
 
 ## V1 acceptance journey
 
 A first-time user must be able to:
 
-1. Install and reach a blank, responsive desktop.
-2. Configure mouse, theme, sound, and clock, then see those choices survive restart.
-3. Create and save a note, contact, appointment, and task.
-4. Restart and recover every saved record intact.
-5. Edit and delete those records with confirmations where destructive.
-6. Receive a visible and audible calendar reminder.
-7. Navigate every required workflow by keyboard and normal workflows by mouse.
-8. Create, open, edit, move, copy, rename, and delete a file safely.
-9. Recover the last known-good data after a simulated interrupted save.
-10. Detect the TexElec card, configure Wi-Fi, reconnect, and report network status.
-11. Refresh Market Watch and send/receive one Comms message without freezing the UI.
-12. Return cleanly to the desktop and then to BASIC.
+1. Install Desk Commander and reach a blank, responsive desktop.
+2. Configure theme, pointer, sound, and clock and retain those choices.
+3. Create, edit, save, find, and delete a note, contact, appointment, and task.
+4. Restart and recover every record intact.
+5. Recover the last known-good data after an interrupted save.
+6. Receive and dismiss a visible and optional audible reminder.
+7. Complete every required workflow by keyboard and normal workflows by mouse.
+8. Create, open, edit, copy, move, rename, and delete files safely.
+9. Launch an external PRG and later relaunch Desk Commander normally.
+10. Detect the TexElec card, join Wi-Fi, reconnect, and understand its status.
+11. Authenticate and exchange a private and group message securely.
+12. Refresh Market Watch without freezing the clock, pointer, or interface.
+13. Open and close applications repeatedly without missing banks, corrupted
+    colors, stale state, or memory failure.
+14. Return cleanly to the desktop and then to BASIC.
 
 ## Release gates
 
 V1 does not ship until:
 
-- The physical TexElec card completes ZiModem detect, Wi-Fi join, IP/DNS, and
-  HTTPS tests using the documented default configuration.
 - No known defect can silently corrupt or discard user data.
-- Production first run contains no personal/demo records by default.
-- No visible V1 control is a nonfunctional placeholder.
-- Every modal window has an obvious mouse and keyboard exit.
+- Interrupted state and document saves recover a known-good copy.
+- Production first boot contains no personal or demo records by default.
+- Public users cannot impersonate another username or modify unauthorized data.
+- Private messages and credentials are protected by the reviewed production transport.
+- No visible V1 control is an unexplained placeholder.
+- Every dialog has an obvious mouse and keyboard exit.
 - Keyboard focus is visible and complete across required workflows.
-- Mouse hit targets and cursor rendering are reliable on real hardware.
+- Mouse hit targets, cursor rendering, emoji colors, and scrolling are reliable on hardware.
 - Calendar date math and reminders pass boundary tests.
-- Missing storage, missing network hardware, and lost Wi-Fi fail safely.
-- Network activity never blocks clock, pointer, alarms, or screen updates indefinitely.
-- Long-session testing does not exhaust memory or corrupt banked state.
-- The release works from a clean SD-card installation.
-- Installation, controls, backup, recovery, network setup, and limitations are documented.
+- Missing storage, absent network hardware, lost Wi-Fi, and server failure fail safely.
+- Network activity cannot block the clock, pointer, reminders, or UI indefinitely.
+- Long sessions do not exhaust memory or corrupt banked/global state.
+- A clean SD-card installation passes the full acceptance journey.
+- Installation, controls, data, backup, recovery, network setup, security, and
+  limitations are documented.
 
 ## Locked technical decisions
 
 - Language: **Prog8 12.3.2**
 - Assembler: **64tass 1.60.3243**
-- Alpha ROM target: **Commander X16 r49**
+- Current ROM target: **Commander X16 r49**
 - Graphics: **320×240, 256-color VERA bitmap**
-- Program load area: conventional RAM below the X16 I/O window
-- Persistent application state: **2 KB versioned image in VERA bank 1**, saved as `DCSTATE.BIN`
+- Persistent local state: **2 KB versioned `DCSTATE.BIN` image**
 - Network card: **TexElec Commander X16 Serial & ESP32 Network Card**
-- Network firmware/API: **ZiModem AT commands over the card's network UART**
-- Default network UART: **IO7-low `$9FE0`, 115200 baud, RTS/CTS**
-- Window model: one foreground app/overlay beneath the persistent top bar
-- Loadable apps: Files in bank 4, file operations in bank 5, editor in bank 6,
-  Network Setup in bank 7, its SSID picker in bank 13, Market Watch in bank 8,
-  quote fetching in bank 9,
-  persistence in bank 10, Notes in bank 11, Comms interaction in bank 12, the
-  external PRG handoff in bank 14, chat HTTP in bank 15, and chat rendering in
-  bank 16
-- Text buffer: 2 KB in VERA RAM for the current alpha
-- Desktop navigation: icon rail and glance panels; no decorative menu strip
+- Network interface: **ZiModem AT commands over `$9FE0`, 115200 baud, RTS/CTS**
+- Window model: **one foreground app below the persistent system bar**
+- Desktop model: **icon rail and glance panels; no decorative menu strip**
+- Runtime model: **8.3-safe main PRG plus loadable banks 4–18**
+- Current text buffer: **2 KB in VERA RAM**
+- Chat room model: **friends for direct messages and groups for shared chat**
+- Host policy: **official host is suggested, but compatible private/community hosts remain allowed**
 
 ## Deferred beyond V1
 
-- Paint/Draw and music composition
-- Rich desktop publishing and spell checking
-- Full spreadsheet compatibility
 - Email client
-- Multiple overlapping live applications or preemptive multitasking
+- Paint/drawing and music composition
+- Spreadsheet and desktop publishing suites
+- Preemptive multitasking or overlapping live applications
 - External-program task switching
-- Third-party application SDK
-- Advanced encrypted credential vault
-- Multiple network-card drivers beyond the TexElec/ZiModem target
+- Third-party app SDK
+- Advanced encrypted local credential vault
+- Additional network-card drivers
+- Spectrum Next and Commodore 64 Ultimate clients; the backend remains modular so
+  these can follow after the X16 protocol is stable
 
-V1 succeeds when DESK COMMANDER is a pleasant place to begin an X16 session,
-a trustworthy home for everyday information, and a reliable bridge from the
-TexElec network card to its first connected applications.
+V1 succeeds when Desk Commander is a pleasant place to begin an X16 session, a
+trustworthy home for everyday information, and a reliable, secure bridge from
+real retro hardware to useful connected services.

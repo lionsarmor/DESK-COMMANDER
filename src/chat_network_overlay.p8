@@ -9,6 +9,6 @@ main {
     %jmptable (chat_network.sync, chat_network.load_messages,
                chat_network.send_message, chat_network.create_account,
                chat_network.add_friend, chat_network.create_group,
-               chat_network.add_group_member)
+               chat_network.group_action)
     sub start() { }
 }

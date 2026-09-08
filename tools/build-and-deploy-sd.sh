@@ -10,6 +10,7 @@ project_dir="/home/legion/Desktop/DESK COMMANDER"
 package_dir="$project_dir/dist/sdcard"
 sd_mount="/media/legion/X16_SDCARD"
 install_dir="$sd_mount/DESKCMD"
+shortcut_file="$project_dir/build/DESKCMD.PRG"
 
 echo "Building DESK COMMANDER..."
 make -C "$project_dir" sdcard
@@ -38,6 +39,10 @@ for source_file in "$package_dir"/*; do
     cp -f -- "$source_file" "$install_dir/$file_name"
 done
 
+# Keep the actual application together in /DESKCMD and install only this tiny
+# launch helper in the SD-card root.
+cp -f -- "$shortcut_file" "$sd_mount/DESKCMD.PRG"
+
 # Finish outstanding writes before the user ejects the removable card.
 sync "$sd_mount"
 
@@ -52,6 +57,12 @@ for source_file in "$package_dir"/*; do
     file_size=$(stat -c '%s' "$install_dir/$file_name")
     printf '  %-18s %s bytes\n' "$file_name" "$file_size"
 done
+
+if ! cmp -s -- "$shortcut_file" "$sd_mount/DESKCMD.PRG"; then
+    echo "Verification failed: root DESKCMD.PRG shortcut"
+    exit 1
+fi
+printf '  %-18s %s bytes\n' "/DESKCMD.PRG" "$(stat -c '%s' "$sd_mount/DESKCMD.PRG")"
 
 echo
 echo "Build and SD-card deployment complete."

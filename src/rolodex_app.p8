@@ -8,20 +8,32 @@
 ; Rolodex application
 ; -----------------------------------------------------------------------------
 ;
-; This alpha keeps ten read-only sample contact cards in the program. Typing
-; filters immediately; the wheel and cursor keys scroll. Active/deleted flags
-; persist, while fully editable disk-backed contact records remain V1 work.
+; Four user-created cards live in the shared SD-backed state image. Typing
+; filters immediately; the wheel and cursor keys scroll. Add and Delete both
+; save as soon as they complete. A fresh installation starts empty.
 
 rolodex_app {
-    const ubyte CONTACT_COUNT = 10
+    const ubyte CUSTOM_COUNT = 4
+    const ubyte CONTACT_COUNT = CUSTOM_COUNT
     const ubyte NO_CONTACT = 255
     const ubyte VISIBLE_ROWS = 5
+    const ubyte CUSTOM_NAME = 0
+    const ubyte CUSTOM_ROLE = 17
+    const ubyte CUSTOM_PHONE = 34
+    const ubyte CUSTOM_EMAIL = 51
+    const ubyte CUSTOM_SOCIAL = 71
+    const ubyte CUSTOM_RECORD_SIZE = 88
+    const uword CUSTOM_STATE = state_data.ROLODEX_CUSTOM
+    const uword OLD_CUSTOM_STATE = state_data.BASE + 900
 
     bool initialized
-    ubyte[10] contact_active
+    ubyte[CONTACT_COUNT] contact_active
     ubyte[17] search_text
+    ubyte[25] contact_buffer
+    ubyte[25] field_text
     ubyte selected_result
     ubyte scroll_offset
+    ubyte status_message
 
     sub initialize() {
         ubyte contact
@@ -29,104 +41,99 @@ rolodex_app {
         if initialized
             return
 
-        if state_data.read(state_data.ROLODEX) == $a5 {
+        if state_data.read(state_data.ROLODEX) == $a8 {
             state_data.restore(state_data.ROLODEX + 1, &contact_active,
                                CONTACT_COUNT)
+        } else if state_data.read(state_data.ROLODEX) == $a7 {
+            ; Move custom records out of the final bytes of Comms' host field.
+            state_data.restore(state_data.ROLODEX + 1, &contact_active,
+                               CONTACT_COUNT)
+            migrate_custom_storage()
+            save_state()
+        } else if state_data.read(state_data.ROLODEX) == $a6 {
+            ; The $A6 alpha stored ten demo flags before the four custom flags.
+            ; Preserve the user's real cards while retiring compiled samples.
+            state_data.restore(state_data.ROLODEX + 11, &contact_active,
+                               CONTACT_COUNT)
+            migrate_custom_storage()
+            save_state()
         } else {
-            ; Sample cards make the alpha easy to evaluate. The release build
-            ; will start blank and offer a separate demo-data option.
             for contact in 0 to CONTACT_COUNT - 1
-                contact_active[contact] = 1
+                contact_active[contact] = 0
             save_state()
         }
         initialized = true
     }
 
     sub save_state() {
-        state_data.write(state_data.ROLODEX, $a5)
+        state_data.write(state_data.ROLODEX, $a8)
         state_data.store(&contact_active, state_data.ROLODEX + 1,
                          CONTACT_COUNT)
         state_data.save()
     }
 
-    sub contact_name(ubyte contact) -> str {
-        when contact {
-            0 -> return iso:"RODDY"
-            1 -> return iso:"ALEX MARTIN"
-            2 -> return iso:"CASEY PARK"
-            3 -> return iso:"DANA REED"
-            4 -> return iso:"JAMIE WEST"
-            5 -> return iso:"MORGAN LEE"
-            6 -> return iso:"PAT QUINN"
-            7 -> return iso:"RILEY JONES"
-            8 -> return iso:"SAM TAYLOR"
-            9 -> return iso:"TERRY CLARK"
+    sub custom_address(ubyte contact, ubyte field) -> uword {
+        return CUSTOM_STATE + (contact as uword) *
+               CUSTOM_RECORD_SIZE + field
+    }
+
+    sub migrate_custom_storage() {
+        ; Copy backward because the old and new VERA ranges overlap by all but
+        ; four bytes. Forward copying would overwrite data not yet moved.
+        uword offset = CUSTOM_COUNT * CUSTOM_RECORD_SIZE
+        do {
+            offset--
+            state_data.write(CUSTOM_STATE + offset,
+                             state_data.read(OLD_CUSTOM_STATE + offset))
+        } until offset == 0
+    }
+
+    sub custom_value(ubyte contact, ubyte field, ubyte maximum) -> str {
+        ubyte index = 0
+        uword address = custom_address(contact, field)
+        while index < maximum and state_data.read(address + index) != 0 {
+            contact_buffer[index] = state_data.read(address + index)
+            index++
         }
-        return iso:"UNKNOWN"
+        contact_buffer[index] = 0
+        return &contact_buffer
+    }
+
+    sub save_custom_value(ubyte contact, ubyte field, ubyte maximum) {
+        ubyte index = 0
+        uword address = custom_address(contact, field)
+        while index < maximum and field_text[index] != 0 {
+            state_data.write(address + index, field_text[index])
+            index++
+        }
+        state_data.write(address + index, 0)
+    }
+
+    sub clear_custom(ubyte contact) {
+        ubyte index
+        uword address = custom_address(contact, 0)
+        for index in 0 to CUSTOM_RECORD_SIZE - 1
+            state_data.write(address + index, 0)
+    }
+
+    sub contact_name(ubyte contact) -> str {
+        return custom_value(contact, CUSTOM_NAME, 16)
     }
 
     sub contact_role(ubyte contact) -> str {
-        when contact {
-            0 -> return iso:"DESK COMMANDER"
-            1 -> return iso:"DESIGN"
-            2 -> return iso:"ENGINEERING"
-            3 -> return iso:"WRITING"
-            4 -> return iso:"MUSIC"
-            5 -> return iso:"OPERATIONS"
-            6 -> return iso:"COMMUNITY"
-            7 -> return iso:"ART"
-            8 -> return iso:"HARDWARE"
-            9 -> return iso:"SUPPORT"
-        }
-        return iso:""
+        return custom_value(contact, CUSTOM_ROLE, 16)
     }
 
     sub contact_phone(ubyte contact) -> str {
-        when contact {
-            0 -> return iso:"555-0100"
-            1 -> return iso:"555-0101"
-            2 -> return iso:"555-0102"
-            3 -> return iso:"555-0103"
-            4 -> return iso:"555-0104"
-            5 -> return iso:"555-0105"
-            6 -> return iso:"555-0106"
-            7 -> return iso:"555-0107"
-            8 -> return iso:"555-0108"
-            9 -> return iso:"555-0109"
-        }
-        return iso:""
+        return custom_value(contact, CUSTOM_PHONE, 16)
     }
 
     sub contact_email(ubyte contact) -> str {
-        when contact {
-            0 -> return iso:"RODDY@DC.TEST"
-            1 -> return iso:"ALEX@DC.TEST"
-            2 -> return iso:"CASEY@DC.TEST"
-            3 -> return iso:"DANA@DC.TEST"
-            4 -> return iso:"JAMIE@DC.TEST"
-            5 -> return iso:"MORGAN@DC.TEST"
-            6 -> return iso:"PAT@DC.TEST"
-            7 -> return iso:"RILEY@DC.TEST"
-            8 -> return iso:"SAM@DC.TEST"
-            9 -> return iso:"TERRY@DC.TEST"
-        }
-        return iso:""
+        return custom_value(contact, CUSTOM_EMAIL, 19)
     }
 
     sub contact_social(ubyte contact) -> str {
-        when contact {
-            0 -> return iso:"@RODDY_X16"
-            1 -> return iso:"@ALEXMAKES"
-            2 -> return iso:"@CASEYCODES"
-            3 -> return iso:"@DANAWRITES"
-            4 -> return iso:"@JAMIEPLAYS"
-            5 -> return iso:"@MORGANOPS"
-            6 -> return iso:"@PATCONNECTS"
-            7 -> return iso:"@RILEYDRAWS"
-            8 -> return iso:"@SAMBITS"
-            9 -> return iso:"@TERRYHELPS"
-        }
-        return iso:""
+        return custom_value(contact, CUSTOM_SOCIAL, 16)
     }
 
     sub same_letter(ubyte left, ubyte right) -> bool {
@@ -222,9 +229,15 @@ rolodex_app {
 
         draw_results()
 
-        gfx_lores.text(34, 196, theme.SOFT_BLUE, iso:"WHEEL/ARROWS")
-        draw_action_button(158, 191, 60, iso:"DELETE", theme.RED)
-        draw_action_button(231, 191, 49, iso:"DONE", theme.BLUE)
+        when status_message {
+            1 -> gfx_lores.text(34, 196, theme.RED, iso:"ROLODEX FULL")
+            2 -> gfx_lores.text(34, 196, theme.GREEN, iso:"SAVED")
+            3 -> gfx_lores.text(34, 196, theme.GREEN, iso:"DELETED")
+            else -> gfx_lores.text(34, 196, theme.SOFT_BLUE, iso:"TYPE TO FIND")
+        }
+        draw_action_button(118, 191, 39, iso:"ADD", theme.GREEN)
+        draw_action_button(161, 191, 60, iso:"DELETE", theme.RED)
+        draw_action_button(225, 191, 55, iso:"DONE", theme.BLUE)
     }
 
     sub draw_search_field() {
@@ -276,7 +289,11 @@ rolodex_app {
 
         gfx_lores.fillrect(146, 87, 5, 102, theme.SOFT_BLUE)
         if count > VISIBLE_ROWS
-            thumb_y += scroll_offset * 9
+            ; The thumb has 78 pixels of travel inside the 102-pixel track.
+            ; Scale by the actual result count so the last contact never draws
+            ; the thumb below the bottom of the list.
+            thumb_y += lsb((scroll_offset as uword) * 78 /
+                           (count - VISIBLE_ROWS))
         gfx_lores.fillrect(146, thumb_y, 5, 24, theme.BLUE)
     }
 
@@ -306,6 +323,136 @@ rolodex_app {
         gfx_lores.fillrect(x, y, width, 14, theme.PAPER)
         gfx_lores.rect(x, y, width, 14, border_color)
         gfx_lores.text(x + 7, y + 3, theme.INK, label)
+    }
+
+    sub draw_entry_field() {
+        gfx_lores.fillrect(55, 105, 210, 22, theme.INK)
+        gfx_lores.fillrect(58, 108, 204, 16, theme.PAPER)
+        if strings.length(field_text) == 0
+            gfx_lores.text(63, 112, theme.SOFT_BLUE, iso:"TYPE HERE")
+        else
+            gfx_lores.text(63, 112, theme.INK, field_text)
+    }
+
+    sub ask_field(str title, str hint, ubyte maximum,
+                  bool required) -> bool {
+        bool finished = false
+        bool accepted = false
+        ubyte length
+
+        field_text[0] = 0
+        gfx_lores.fillrect(45, 70, 230, 107, theme.INK)
+        gfx_lores.fillrect(42, 67, 230, 107, theme.PAPER)
+        gfx_lores.rect(42, 67, 230, 107, theme.INK)
+        gfx_lores.fillrect(43, 68, 228, 18, theme.BLUE)
+        gfx_lores.text(51, 73, theme.PAPER, title)
+        gfx_lores.text(55, 93, theme.BLUE, hint)
+        draw_entry_field()
+        gfx_lores.rect(61, 141, 76, 20, theme.GREEN)
+        gfx_lores.text(86, 147, theme.INK, iso:"OK")
+        gfx_lores.rect(165, 141, 88, 20, theme.RED)
+        gfx_lores.text(180, 147, theme.INK, iso:"CANCEL")
+
+        do {
+            sys.waitvsync()
+            input.poll()
+
+            if input.key == $14 {
+                length = strings.length(field_text)
+                if length > 0
+                    field_text[length - 1] = 0
+                draw_entry_field()
+            } else if input.key >= 32 and input.key <= 126 {
+                length = strings.length(field_text)
+                if length < maximum {
+                    field_text[length] = input.key
+                    field_text[length + 1] = 0
+                    draw_entry_field()
+                }
+            } else if input.key == $0d and
+                      (not required or strings.length(field_text) > 0) {
+                accepted = true
+                finished = true
+            }
+
+            if input.left_pressed() {
+                if input.inside(61, 141, 76, 20) and
+                   (not required or strings.length(field_text) > 0) {
+                    accepted = true
+                    finished = true
+                } else if input.inside(165, 141, 88, 20)
+                    finished = true
+            }
+        } until finished or input.key == $1b
+
+        input.key = 0
+        return accepted
+    }
+
+    sub first_free_custom() -> ubyte {
+        ubyte contact
+        for contact in 0 to CONTACT_COUNT - 1 {
+            if contact_active[contact] == 0
+                return contact
+        }
+        return NO_CONTACT
+    }
+
+    sub add_contact() {
+        ubyte contact = first_free_custom()
+
+        if contact == NO_CONTACT {
+            status_message = 1
+            draw_window()
+            return
+        }
+
+        clear_custom(contact)
+        if not ask_field(iso:"ADD CONTACT 1/5", iso:"NAME (REQUIRED)",
+                         16, true) {
+            draw_window()
+            return
+        }
+        save_custom_value(contact, CUSTOM_NAME, 16)
+
+        if not ask_field(iso:"ADD CONTACT 2/5", iso:"ROLE / COMPANY",
+                         16, false) {
+            clear_custom(contact)
+            draw_window()
+            return
+        }
+        save_custom_value(contact, CUSTOM_ROLE, 16)
+        if not ask_field(iso:"ADD CONTACT 3/5", iso:"PHONE",
+                         16, false) {
+            clear_custom(contact)
+            draw_window()
+            return
+        }
+        save_custom_value(contact, CUSTOM_PHONE, 16)
+        if not ask_field(iso:"ADD CONTACT 4/5", iso:"EMAIL",
+                         19, false) {
+            clear_custom(contact)
+            draw_window()
+            return
+        }
+        save_custom_value(contact, CUSTOM_EMAIL, 19)
+        if not ask_field(iso:"ADD CONTACT 5/5", iso:"SOCIAL HANDLE",
+                         16, false) {
+            clear_custom(contact)
+            draw_window()
+            return
+        }
+        save_custom_value(contact, CUSTOM_SOCIAL, 16)
+
+        contact_active[contact] = 1
+        search_text[0] = 0
+        reset_search_selection()
+        selected_result = matching_contact_count() - 1
+        if selected_result >= VISIBLE_ROWS
+            scroll_offset = selected_result - VISIBLE_ROWS + 1
+        status_message = 2
+        save_state()
+        draw_window()
     }
 
     sub reset_search_selection() {
@@ -366,18 +513,23 @@ rolodex_app {
             return
 
         contact_active[contact] = 0
+        clear_custom(contact)
         count = matching_contact_count()
 
         ; Keep the selection and scroll position on a real remaining row.
         if count == 0 {
             selected_result = 0
             scroll_offset = 0
+            status_message = 3
+            save_state()
             return
         }
         if selected_result >= count
             selected_result = count - 1
         if scroll_offset > 0 and scroll_offset + VISIBLE_ROWS > count
             scroll_offset--
+        status_message = 3
+        save_state()
     }
 
     sub open() {
@@ -389,6 +541,7 @@ rolodex_app {
 
         initialize()
         search_text[0] = 0
+        status_message = 0
         reset_search_selection()
         draw_window()
 
@@ -406,10 +559,12 @@ rolodex_app {
                             draw_results()
                         }
                     }
-                } else if input.inside(158, 191, 60, 14) {
+                } else if input.inside(118, 191, 39, 14)
+                    add_contact()
+                else if input.inside(161, 191, 60, 14) {
                     delete_selected_contact()
-                    draw_results()
-                } else if input.inside(231, 191, 49, 14) or
+                    draw_window()
+                } else if input.inside(225, 191, 55, 14) or
                           input.inside(272, 31, 15, 12) {
                     close_window = true
                 }

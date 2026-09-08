@@ -1,6 +1,7 @@
 %import conv
 %import appmeta
 %import diskio
+%import desktop_extras
 %import floats
 %import gfx_lores
 %import font5x7
@@ -8,7 +9,6 @@
 %import calendar_app
 %import market_data
 %import preferences
-%import rolodex_app
 %import strings
 %import theme
 
@@ -18,10 +18,9 @@
 ;
 ; The desktop has two clear zones:
 ;   1. A slim icon rail keeps application launchers close to the left edge.
-;   2. Notes and Calendar sit above a wide market-watch glance panel.
+;   2. Notes and Calendar sit above Market Watch and a Screensaver launcher.
 ;
-; Every area has its own mouse hit box and keyboard section number. Some apps
-; are complete alpha tools; Comms remains an explicitly labelled prototype.
+; Every area has its own mouse hit box and keyboard section number.
 
 desktop {
     ; The file manager is a loadable high-RAM app. Keeping it outside the core
@@ -39,6 +38,19 @@ desktop {
     extsub @bank 11 $a003 = open_notes_app() clobbers(A, X, Y)
     extsub @bank 12 $a000 = initialize_comms_app() clobbers(A, X, Y)
     extsub @bank 12 $a003 = open_comms_app() clobbers(A, X, Y)
+    extsub @bank 19 $a000 = initialize_rolodex_app() clobbers(A, X, Y)
+    extsub @bank 19 $a003 = open_rolodex_app() clobbers(A, X, Y)
+    extsub @bank 18 $a000 = initialize_screensaver() clobbers(A, X, Y)
+    extsub @bank 18 $a003 = open_screensaver() clobbers(A, X, Y)
+    sub draw_compact_market() { desktop_extras.draw_market_watch() }
+    sub draw_market_refresh_idle() {
+        desktop_extras.draw_market_refresh_button(false)
+    }
+    sub draw_market_refresh_busy() {
+        desktop_extras.draw_market_refresh_button(true)
+    }
+    sub draw_screensaver_idle() { desktop_extras.draw_launcher(false) }
+    sub draw_screensaver_active() { desktop_extras.draw_launcher(true) }
 
     sub load_bank(str filename, ubyte bank) -> bool {
         ; This routine itself lives in conventional RAM, so it remains visible
@@ -73,11 +85,20 @@ desktop {
         return load_bank(iso:"ZZNOTES.BIN", 11)
     }
 
+    sub load_rolodex() -> bool {
+        return load_bank(iso:"ZZROLO.BIN", 19)
+    }
+
     sub load_comms() -> bool {
         bool loaded = load_bank(iso:"ZZCOMMS.BIN", 12)
         if not load_bank(iso:"ZZCHATNET.BIN", 15) loaded = false
         if not load_bank(iso:"ZZCHATUI.BIN", 16) loaded = false
+        if not load_bank(iso:"ZZEMOJI.BIN", 17) loaded = false
         return loaded
+    }
+
+    sub load_screensaver() -> bool {
+        return load_bank(iso:"ZZSCREEN.BIN", 18)
     }
 
     const uword RAIL_X = 5
@@ -103,8 +124,12 @@ desktop {
 
     const uword MARKET_X = 52
     const ubyte MARKET_Y = 139
-    const ubyte MARKET_WIDTH = 255
+    const ubyte MARKET_WIDTH = 165
     const ubyte MARKET_HEIGHT = 70
+    const uword SCREENSAVER_X = 221
+    const ubyte SCREENSAVER_Y = 139
+    const ubyte SCREENSAVER_WIDTH = 86
+    const ubyte SCREENSAVER_HEIGHT = 70
 
     const ubyte SECTION_NONE = 0
     const ubyte SECTION_NOTES = 1
@@ -115,6 +140,7 @@ desktop {
     const ubyte SECTION_COMMS = 6
     const ubyte SECTION_SETTINGS = 7
     const ubyte SECTION_MARKET = 8
+    const ubyte SECTION_SCREENSAVER = 9
 
     const ubyte ICON_FOLDER = 1
     const ubyte ICON_CALCULATOR = 2
@@ -129,10 +155,6 @@ desktop {
     ubyte clock_frames
     uword market_frames
     ubyte[6] clock_text = [48, 48, 58, 48, 48, 0]
-    ubyte[6] market_symbol
-    ubyte[12] market_price
-    ubyte[11] market_change
-
     ; Calculator state lives here because the calculator is a modal desktop
     ; accessory. The display string is also the number-entry buffer.
     ubyte[20] calculator_display
@@ -162,7 +184,16 @@ desktop {
 
         draw_panel(MARKET_X, MARKET_Y, MARKET_WIDTH, MARKET_HEIGHT,
                    iso:"MARKET WATCH", false)
-        draw_market_watch()
+        if load_screensaver() {
+            initialize_screensaver()
+            draw_compact_market()
+            draw_screensaver_idle()
+        } else {
+            gfx_lores.text(63, 177, theme.RED, iso:"MARKET DISPLAY MISSING")
+            draw_panel(SCREENSAVER_X, SCREENSAVER_Y, SCREENSAVER_WIDTH,
+                       SCREENSAVER_HEIGHT, iso:"SCREEN", false)
+            gfx_lores.text(235, 177, theme.RED, iso:"MISSING")
+        }
 
         draw_status(iso:"YOUR DESK IS READY")
 
@@ -363,79 +394,19 @@ desktop {
         gfx_lores.text(x, y, text_color, conv.str_ub(day))
     }
 
-    sub draw_market_watch() {
-        ubyte row
-        ubyte stock
-        ubyte first_stock = market_data.current_page() * 3
-        ubyte color
-
-        ; This small dirty region is also repainted when the next group of
-        ; three cached quotes rotates into view every thirty seconds.
-        gfx_lores.fillrect(53, 153, 253, 55, theme.PAPER)
-        gfx_lores.text(60, 156, theme.BLUE, iso:"SYMBOL")
-        gfx_lores.text(128, 156, theme.BLUE, iso:"LAST")
-        gfx_lores.text(205, 156, theme.BLUE, iso:"CHANGE")
-        draw_market_refresh_button(false)
-
-        if market_data.count() == 0 {
-            gfx_lores.text(66, 180, theme.INK, iso:"CLICK HERE TO ADD STOCKS")
-            return
-        }
-
-        for row in 0 to 2 {
-            stock = first_stock + row
-            if stock < market_data.count() {
-                market_data.copy_symbol(stock, market_symbol)
-                market_data.copy_price(stock, market_price)
-                market_data.copy_change(stock, market_change)
-                color = theme.SOFT_BLUE
-                if market_data.state(stock) == market_data.STATE_FRESH {
-                    color = theme.GREEN
-                    if market_change[0] == '-'
-                        color = theme.RED
-                }
-                draw_market_row(168 + row * 13, market_symbol, market_price,
-                                market_change, color)
-            }
-        }
-    }
-
-    sub draw_market_refresh_button(bool busy) {
-        ; A compact circular-arrow control lives in the card heading. Keeping
-        ; it icon-only leaves the at-a-glance panel airy at 320x240.
-        ubyte face = theme.GOLD
-        if busy
-            face = theme.RED
-        gfx_lores.fillrect(284, 141, 20, 11, face)
-        gfx_lores.rect(284, 141, 20, 11, theme.INK)
-        gfx_lores.line(290, 144, 296, 143, theme.INK)
-        gfx_lores.line(296, 143, 299, 146, theme.INK)
-        gfx_lores.line(299, 146, 297, 149, theme.INK)
-        gfx_lores.line(297, 149, 291, 149, theme.INK)
-        gfx_lores.fillrect(288, 143, 3, 3, theme.INK)
-        gfx_lores.fillrect(297, 147, 3, 3, theme.INK)
-    }
-
     sub refresh_market_glance() {
-        draw_market_refresh_button(true)
+        draw_market_refresh_busy()
         draw_status(iso:"UPDATING THREE MARKET PRICES...")
         if load_market_watch() {
             initialize_market_fetch()
             market_data.set_requested_stock(market_data.current_page() * 3)
             refresh_market_group()
-            draw_market_watch()
+            draw_compact_market()
             draw_status(iso:"MARKET PRICES UPDATED")
         } else {
-            draw_market_refresh_button(false)
+            draw_market_refresh_idle()
             draw_status(iso:"MARKET WATCH APP IS MISSING")
         }
-    }
-
-    sub draw_market_row(ubyte y, str symbol, str price, str change,
-                        ubyte change_color) {
-        gfx_lores.text(60, y, theme.INK, symbol)
-        gfx_lores.text(128, y, theme.INK, price)
-        gfx_lores.text(205, y, change_color, change)
     }
 
     sub draw_icon_rail() {
@@ -1102,6 +1073,9 @@ desktop {
             return SECTION_CALENDAR
         if input.inside(MARKET_X, MARKET_Y, MARKET_WIDTH, MARKET_HEIGHT)
             return SECTION_MARKET
+        if input.inside(SCREENSAVER_X, SCREENSAVER_Y,
+                        SCREENSAVER_WIDTH, SCREENSAVER_HEIGHT)
+            return SECTION_SCREENSAVER
         if input.inside(ICON_X, FILE_Y, ICON_WIDTH, ICON_HEIGHT)
             return SECTION_FILES
         if input.inside(ICON_X, CALCULATOR_Y, ICON_WIDTH, ICON_HEIGHT)
@@ -1130,8 +1104,9 @@ desktop {
             SECTION_SETTINGS -> draw_rail_button(SETTINGS_Y, ICON_SETTINGS, false)
             SECTION_MARKET -> {
                 draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH", false)
-                draw_market_refresh_button(false)
+                draw_market_refresh_idle()
             }
+            SECTION_SCREENSAVER -> draw_screensaver_idle()
         }
 
         when new_section {
@@ -1144,8 +1119,9 @@ desktop {
             SECTION_SETTINGS -> draw_rail_button(SETTINGS_Y, ICON_SETTINGS, true)
             SECTION_MARKET -> {
                 draw_panel_heading(MARKET_X, MARKET_Y, MARKET_WIDTH, iso:"MARKET WATCH", true)
-                draw_market_refresh_button(false)
+                draw_market_refresh_idle()
             }
+            SECTION_SCREENSAVER -> draw_screensaver_active()
         }
 
         hovered_section = new_section
@@ -1153,7 +1129,7 @@ desktop {
 
     sub select_next_section() {
         ubyte next_section = hovered_section + 1
-        if hovered_section == SECTION_NONE or next_section > SECTION_MARKET
+        if hovered_section == SECTION_NONE or next_section > SECTION_SCREENSAVER
             next_section = SECTION_NOTES
         update_hover(next_section)
     }
@@ -1161,7 +1137,7 @@ desktop {
     sub select_previous_section() {
         ubyte previous_section = hovered_section - 1
         if hovered_section == SECTION_NONE or hovered_section == SECTION_NOTES
-            previous_section = SECTION_MARKET
+            previous_section = SECTION_SCREENSAVER
         update_hover(previous_section)
     }
 
@@ -1177,8 +1153,12 @@ desktop {
             calendar_app.open()
             show()
         } else if hovered_section == SECTION_ROLODEX {
-            rolodex_app.open()
-            show()
+            if load_rolodex() {
+                initialize_rolodex_app()
+                open_rolodex_app()
+                show()
+            } else
+                draw_status(iso:"ROLODEX APP IS MISSING")
         } else if hovered_section == SECTION_FILES {
             if load_file_suite() {
                 initialize_file_manager()
@@ -1205,6 +1185,13 @@ desktop {
                 show()
             } else
                 draw_status(iso:"MARKET WATCH APP IS MISSING")
+        } else if hovered_section == SECTION_SCREENSAVER {
+            if load_screensaver() {
+                initialize_screensaver()
+                open_screensaver()
+                show()
+            } else
+                draw_status(iso:"SCREENSAVER APP IS MISSING")
         }
     }
 
@@ -1228,7 +1215,7 @@ desktop {
             }
 
             if input.left_pressed() {
-                if input.inside(284, 141, 20, 11) {
+                if input.inside(195, 141, 18, 11) {
                     preferences.play_click()
                     refresh_market_glance()
                 } else {
@@ -1252,7 +1239,7 @@ desktop {
             if market_frames == 1800 {
                 market_frames = 0
                 market_data.next_page()
-                draw_market_watch()
+                draw_compact_market()
             }
         } until input.key == $1b
 

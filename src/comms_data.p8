@@ -8,14 +8,18 @@ comms_data {
     const uword FRIENDS = CACHE + 16
     const uword GROUPS = CACHE + 160
     const uword MESSAGES = CACHE + 320
-    const uword ACTION = CACHE + 540
-    const uword SELECTED_KIND = CACHE + 575
-    const uword SELECTED_NAME = CACHE + 576
-    const uword MESSAGE_TEXT = CACHE + 594
-    const uword STATUS = CACHE + 630
+    const uword ACTION = CACHE + 560
+    const uword SELECTED_KIND = CACHE + 593
+    const uword SELECTED_NAME = CACHE + 594
+    const uword MESSAGE_TEXT = CACHE + 611
+    const uword STATUS = CACHE + 708
     const ubyte MAX_FRIENDS = 8
     const ubyte MAX_GROUPS = 4
-    const ubyte MAX_MESSAGES = 4
+    const ubyte MAX_MESSAGE_LENGTH = 96
+    const ubyte MESSAGE_RECORD_SIZE = 114 ; 17-byte sender + 97-byte text
+    ; Two 96-character messages plus their senders fit safely in both this
+    ; cache and ZiModem's 255-byte response transcript.
+    const ubyte MAX_MESSAGES = 2
 
     const uword USERNAME = state_data.COMMS + 4
     const uword HOST = state_data.COMMS + 21
@@ -70,8 +74,8 @@ comms_data {
         clear(CACHE, 16)
         clear(FRIENDS, 144)
         clear(GROUPS, 160)
-        clear(MESSAGES, 220)
-        clear(ACTION, 124)
+        clear(MESSAGES, 228)
+        clear(ACTION, 192)
     }
 
     sub set_username(str value) { copy_to(USERNAME, value, 16) state_data.save() }
@@ -106,6 +110,17 @@ comms_data {
     sub set_group_scroll(ubyte value) { write(CACHE + 4, value) }
     sub set_message_offset(ubyte value) { write(CACHE + 5, value) }
     sub set_composer_focused(bool value) { write(CACHE + 6, value as ubyte) }
+    sub set_emoji_choice(ubyte value) { write(CACHE + 7, value) }
+    sub emoji_choice() -> ubyte { return read(CACHE + 7) }
+    sub set_face_draw(uword x, ubyte y, ubyte face) {
+        write(CACHE + 8, lsb(x))
+        write(CACHE + 9, msb(x))
+        write(CACHE + 10, y)
+        write(CACHE + 11, face)
+    }
+    sub face_x() -> uword { return read(CACHE + 8) | (read(CACHE + 9) as uword) << 8 }
+    sub face_y() -> ubyte { return read(CACHE + 10) }
+    sub face_kind() -> ubyte { return read(CACHE + 11) }
     sub set_status(str value, ubyte color) {
         copy_to(STATUS, value, 28)
         write(STATUS + 29, color)
@@ -145,27 +160,28 @@ comms_data {
 
     sub set_action(str value) { copy_to(ACTION, value, 32) }
     sub get_action(str value) { copy_from(ACTION, value, 32) }
-    sub set_message(str value) { copy_to(MESSAGE_TEXT, value, 32) }
-    sub get_message(str value) { copy_from(MESSAGE_TEXT, value, 32) }
+    sub set_message(str value) { copy_to(MESSAGE_TEXT, value, MAX_MESSAGE_LENGTH) }
+    sub get_message(str value) { copy_from(MESSAGE_TEXT, value, MAX_MESSAGE_LENGTH) }
 
-    sub clear_messages() { write(CACHE + 2, 0) clear(MESSAGES, 200) }
+    sub clear_messages() { write(CACHE + 2, 0) clear(MESSAGES, 228) }
     sub add_message(str sender, str text) {
         ubyte count = message_count()
         if count >= MAX_MESSAGES return
-        copy_to(MESSAGES + (count as uword) * 50, sender, 16)
-        copy_to(MESSAGES + (count as uword) * 50 + 17, text, 32)
+        copy_to(MESSAGES + (count as uword) * MESSAGE_RECORD_SIZE, sender, 16)
+        copy_to(MESSAGES + (count as uword) * MESSAGE_RECORD_SIZE + 17,
+                text, MAX_MESSAGE_LENGTH)
         write(CACHE + 2, count + 1)
     }
-    sub copy_sender(ubyte index, str value) { copy_from(MESSAGES + (index as uword) * 50, value, 16) }
-    sub copy_message(ubyte index, str value) { copy_from(MESSAGES + (index as uword) * 50 + 17, value, 32) }
+    sub copy_sender(ubyte index, str value) { copy_from(MESSAGES + (index as uword) * MESSAGE_RECORD_SIZE, value, 16) }
+    sub copy_message(ubyte index, str value) { copy_from(MESSAGES + (index as uword) * MESSAGE_RECORD_SIZE + 17, value, MAX_MESSAGE_LENGTH) }
 
     sub message_signature() -> uword {
         ; Cheap change detector for background receive polling. It lets Comms
-        ; skip a redraw when the same four visible messages come back, avoiding
+        ; skip a redraw when the same two visible messages come back, avoiding
         ; a periodic flash on real hardware.
         uword signature = message_count()
         ubyte index = 0
-        while index < 200 {
+        while index < 228 {
             signature += read(MESSAGES + index)
             index++
         }

@@ -77,6 +77,69 @@ file_manager {
         return (program_flags & (1 << row)) != 0
     }
 
+    asmsub filename_is_program(str filename @AY) clobbers(X, Y) -> bool @A {
+        ; HostFS, SD cards, and different ROM revisions do not always report
+        ; the same three-letter directory type for FAT files. Recognize the
+        ; two executable X16 filename endings as a reliable second signal.
+        %asm {{
+            sta  P8ZP_SCRATCH_W1
+            sty  P8ZP_SCRATCH_W1+1
+            ldy  #0
+length_loop:
+            lda  (P8ZP_SCRATCH_W1),y
+            beq  length_found
+            iny
+            cpy  #51
+            bcc  length_loop
+length_found:
+            cpy  #4
+            bcc  not_program
+            tya
+            sec
+            sbc  #4
+            tay
+            lda  (P8ZP_SCRATCH_W1),y
+            ; Explicit bytes avoid Prog8 assembly character-literal encoding;
+            ; device-8 filenames arrive here as ordinary PETSCII/ASCII bytes.
+            cmp  #$2e             ; .
+            bne  not_program
+            iny
+            lda  (P8ZP_SCRATCH_W1),y
+            and  #$df
+            cmp  #$50             ; P
+            beq  check_prg
+            cmp  #$58             ; X
+            beq  check_x16
+not_program:
+            lda  #0
+            rts
+check_prg:
+            iny
+            lda  (P8ZP_SCRATCH_W1),y
+            and  #$df
+            cmp  #$52             ; R
+            bne  not_program
+            iny
+            lda  (P8ZP_SCRATCH_W1),y
+            and  #$df
+            cmp  #$47             ; G
+            bne  not_program
+            lda  #1
+            rts
+check_x16:
+            iny
+            lda  (P8ZP_SCRATCH_W1),y
+            cmp  #$31             ; 1
+            bne  not_program
+            iny
+            lda  (P8ZP_SCRATCH_W1),y
+            cmp  #$36             ; 6
+            bne  not_program
+            lda  #1
+            rts
+        }}
+    }
+
     sub load_directory_page() {
         uword skipped = 0
 
@@ -103,7 +166,8 @@ file_manager {
                              name_for_row(entry_count), NAME_SIZE - 1)
                 if diskio.list_filetype == "dir"
                     directory_flags |= 1 << entry_count
-                else if diskio.list_filetype == "prg"
+                else if diskio.list_filetype == "prg" or
+                        filename_is_program(diskio.list_filename)
                     program_flags |= 1 << entry_count
                 entry_count++
             }

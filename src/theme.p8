@@ -21,6 +21,14 @@ theme {
     ; Fixed cursor colors remain recognizable across every theme package.
     const ubyte MOUSE_BLUE = 40
     const ubyte MOUSE_RED = 41
+    ; Chat bubbles use a fixed bright set so the same sender stays easy to
+    ; recognize in every theme. CHAT_SELF is always the local user.
+    const ubyte CHAT_SELF = 42
+    const ubyte CHAT_CYAN = 43
+    const ubyte CHAT_VIOLET = 44
+    const ubyte CHAT_ORANGE = 45
+    const ubyte CHAT_ROSE = 46
+    const ubyte CHAT_AZURE = 47
     const ubyte PACKAGE_COUNT = 3
 
     ubyte current_package
@@ -37,6 +45,7 @@ theme {
             2 -> install_midnight_palette()
         }
         install_mouse_colors()
+        install_chat_colors()
     }
 
     sub next_package() {
@@ -86,5 +95,16 @@ theme {
     sub install_mouse_colors() {
         palette.set_color(MOUSE_BLUE, $18f)
         palette.set_color(MOUSE_RED, $f33)
+    }
+
+    sub install_chat_colors() {
+        ; Never use black for a sender bubble. A small fixed palette also
+        ; avoids asking users to configure colors on an eight-bit machine.
+        palette.set_color(CHAT_SELF, $1a6)    ; local user: green
+        palette.set_color(CHAT_CYAN, $078)
+        palette.set_color(CHAT_VIOLET, $72c)
+        palette.set_color(CHAT_ORANGE, $c50)
+        palette.set_color(CHAT_ROSE, $c25)
+        palette.set_color(CHAT_AZURE, $16b)
     }
 }

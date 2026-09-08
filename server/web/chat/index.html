@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#001133">
+  <title>Desk Comms // Public Alpha</title>
+  <style>
+    :root{color-scheme:dark;--navy:#001133;--blue:#0066aa;--paper:#fffdf5;--ink:#000011;--red:#dd2222;--soft:#66bbdd;--green:#119977;--gold:#eecc22}
+    *{box-sizing:border-box}html,body{min-height:100%}body{margin:0;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 12%,#173d79,#050915 62%);font-family:"Courier New",monospace;color:white}
+    .page{width:min(1120px,100%)}.brand{text-align:center;margin:0 0 14px;color:#bcecff;font:700 13px/1 monospace;letter-spacing:.22em;text-transform:uppercase}.machine{box-sizing:content-box;position:relative;width:calc(100% - 36px);margin:auto;aspect-ratio:4/3;border:clamp(9px,1.6vw,18px) solid #101a2e;border-radius:8px;background:#000;box-shadow:0 28px 80px #000c,0 0 0 2px #29466f;overflow:hidden}.machine:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,#0000 0,#0000 3px,#00112818 4px);mix-blend-mode:multiply}
+    canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:default;touch-action:manipulation}.capture{position:absolute;left:1.9%;top:87.9%;width:54.7%;height:8.8%;opacity:.001;border:0;padding:0;z-index:2;caret-color:transparent;font-size:16px}.foot{display:flex;justify-content:space-between;gap:14px;margin-top:12px;color:#8da6cb;font:12px/1.45 system-ui,sans-serif}.foot a{color:#67dcff}.warning{color:#ffc948}
+    dialog{width:min(520px,calc(100% - 30px));border:3px solid var(--ink);outline:2px solid var(--paper);padding:0;background:var(--paper);color:var(--ink);box-shadow:9px 9px 0 #0009;font-family:"Courier New",monospace;text-transform:uppercase}dialog::backdrop{background:#000a}.dialog-title{padding:12px 14px;background:var(--blue);color:var(--paper);font-weight:900;letter-spacing:.08em}.dialog-body{padding:18px}.dialog-body p{min-height:20px;margin:0 0 12px;color:#173257;font-weight:700}.dialog-body input{width:100%;border:3px solid var(--ink);background:white;color:var(--ink);padding:12px;font:700 18px "Courier New",monospace;text-transform:none}.dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:15px}.dialog-actions button,.login button{border:2px solid var(--ink);padding:10px 18px;background:var(--blue);color:white;font:900 14px "Courier New",monospace;box-shadow:3px 3px 0 #001}.dialog-actions .danger{background:var(--red)}.dialog-actions .cancel{background:var(--navy)}
+    .login{position:fixed;inset:0;z-index:8;display:grid;place-items:center;padding:18px;background:#030713ee}.login.hidden{display:none}.login-card{width:min(510px,100%);border:3px solid var(--ink);outline:2px solid var(--paper);background:var(--paper);color:var(--ink);box-shadow:12px 12px 0 #0008}.login-title{padding:15px;background:var(--blue);color:white;font:900 23px "Courier New",monospace;letter-spacing:.06em}.login-content{padding:22px}.login-content p{font:700 14px/1.5 system-ui,sans-serif;color:#263755}.login-content input{width:100%;border:3px solid var(--ink);padding:13px;color:var(--ink);background:white;font:800 20px "Courier New",monospace;text-transform:uppercase}.login button{width:100%;margin-top:12px;background:var(--green)}.login-status{min-height:22px;margin-top:10px;color:var(--red);font:700 13px system-ui,sans-serif}.alpha{padding:9px 12px;background:#fff1bc;border-top:2px solid #ba8a00;font:700 12px/1.4 system-ui,sans-serif;color:#463300}
+    @media(max-width:700px) and (orientation:portrait){html,body{height:100%;min-height:100%;overflow:hidden}body{display:block;padding:max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));background:linear-gradient(180deg,#173d79,#030713 42%)}.page{width:100%;height:100%;display:flex;flex-direction:column}.brand{flex:none;margin:0 0 6px;font-size:10px;letter-spacing:.15em}.machine{box-sizing:border-box;flex:1 1 auto;width:100%;min-height:0;margin:0;aspect-ratio:auto;border-width:4px;border-radius:12px;box-shadow:0 14px 34px #000b,0 0 0 1px #4f78a9}.machine:after{opacity:.6}.foot{flex:none;display:block;margin:6px 3px 0;font-size:10px;line-height:1.25;text-align:center}.foot span:first-child{display:none}.warning{display:block}dialog{width:calc(100% - 20px);max-height:calc(100dvh - 24px);overflow:auto}.dialog-title{padding:14px}.dialog-body{padding:15px}.dialog-actions button,.login button{min-height:48px}.login{padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}.login-card{max-height:100%;overflow:auto;border-width:2px;box-shadow:7px 7px 0 #0008}.login-title{font-size:21px}.login-content{padding:18px}.login-content input{font-size:18px}}
+    @media(max-width:700px) and (orientation:portrait) and (max-height:560px){.brand,.foot{display:none}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <p class="brand">Commander X16 compatible public tester</p>
+    <div class="machine" id="machine">
+      <canvas id="screen" width="320" height="240" aria-label="Desk Comms"></canvas>
+      <input id="capture" class="capture" maxlength="96" autocomplete="off" aria-label="Message text">
+    </div>
+    <div class="foot"><span>Same friends, groups, messages, limits, and presence as the physical X16 client.</span><span class="warning">Public alpha: test messages only. Usernames are not authenticated yet.</span></div>
+  </main>
+
+  <section id="login" class="login">
+    <div class="login-card">
+      <div class="login-title">DESK COMMS</div>
+      <div class="login-content">
+        <p>Choose a unique testing username. It is saved only in this browser. RODDY will be added automatically so you can message the project manager.</p>
+        <input id="loginName" maxlength="16" autocomplete="nickname" placeholder="YOUR NAME">
+        <button id="connectButton">CONNECT</button>
+        <div id="loginStatus" class="login-status"></div>
+      </div>
+      <div class="alpha">This compatibility alpha does not have passwords yet. Do not use a real password or private information.</div>
+    </div>
+  </section>
+
+  <dialog id="entryDialog">
+    <form method="dialog">
+      <div id="dialogTitle" class="dialog-title">DESK COMMS</div>
+      <div class="dialog-body">
+        <p id="dialogHint"></p>
+        <input id="dialogInput" maxlength="16" autocomplete="off">
+        <div class="dialog-actions"><button class="cancel" value="cancel">CANCEL</button><button id="dialogOk" value="ok">OK</button></div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog">
+    <form method="dialog">
+      <div id="confirmTitle" class="dialog-title">CONFIRM</div>
+      <div class="dialog-body"><p id="confirmText"></p><div class="dialog-actions"><button class="cancel" value="cancel">CANCEL</button><button class="danger" value="ok">REMOVE</button></div></div>
+    </form>
+  </dialog>
+
+<script>
+// Desktop keeps the X16's 320x240 frame. Portrait phones keep the same
+// 320-pixel coordinate system but gain a taller transcript and larger controls.
+const canvas=document.getElementById('screen'),ctx=canvas.getContext('2d');
+const capture=document.getElementById('capture'),login=document.getElementById('login'),machine=document.getElementById('machine');
+const C={navy:'#001133',blue:'#0066aa',paper:'#ffffff',ink:'#000011',red:'#dd2222',soft:'#66bbdd',green:'#119977',gold:'#eecc22',cyan:'#008899',violet:'#7722cc',orange:'#cc5500',rose:'#cc2255',azure:'#1166bb'};
+// Faces deliberately use only the base yellow/black colors; angry shares red.
+C.face=C.gold;C.faceBlack='#000000';C.faceRed=C.red;
+const ADMIN='RODDY',MAX_FRIENDS=8,MAX_GROUPS=4;
+let user='',friends=[],groups=[],presence={},allUsers=[],selectedKind='',selectedName='',messages=[],friendScroll=0,groupScroll=0,messageOffset=0,status='READY',statusColor=C.blue,pressed='',busy=false,chooserOpen=false,emojiOpen=false;
+let soundEnabled=localStorage.deskCommsSound!=='0',audioContext=null;
+
+function phoneMode(){return matchMedia('(max-width:700px) and (orientation:portrait)').matches}
+function ui(){const mobile=phoneMode(),height=canvas.height;return mobile?{mobile,height,top:22,toolbarY:22,toolbarH:27,chatY:49,chatH:29,messageY:83,statusY:height-55,composerY:height-39,composerH:32,fieldX:6,fieldW:195,emojiX:205,emojiW:35,sendX:244,sendW:70}:{mobile,height,top:18,toolbarY:18,toolbarH:21,chatY:39,chatH:25,messageY:69,statusY:198,composerY:211,composerH:21,fieldX:6,fieldW:175,emojiX:188,emojiW:27,sendX:220,sendW:92}}
+function configureCanvas(){const mobile=phoneMode();machine.classList.toggle('mobile-layout',mobile);let height=240;if(mobile){const bounds=machine.getBoundingClientRect();height=Math.max(360,Math.min(700,Math.round(bounds.height*320/Math.max(1,bounds.width))))}if(canvas.height!==height)canvas.height=height;updateCaptureBounds();draw()}
+function updateCaptureBounds(){const m=ui();capture.style.left=(m.fieldX/3.2)+'%';capture.style.top=(m.composerY/m.height*100)+'%';capture.style.width=(m.fieldW/3.2)+'%';capture.style.height=(m.composerH/m.height*100)+'%'}
+
+// Compact 5x7 bitmap font: sharp at 320x240 and pixel-perfect when enlarged.
+const F={
+'A':[14,17,17,31,17,17,17],'B':[30,17,17,30,17,17,30],'C':[14,17,16,16,16,17,14],'D':[30,17,17,17,17,17,30],
+'E':[31,16,16,30,16,16,31],'F':[31,16,16,30,16,16,16],'G':[14,17,16,23,17,17,15],'H':[17,17,17,31,17,17,17],
+'I':[31,4,4,4,4,4,31],'J':[7,2,2,2,18,18,12],'K':[17,18,20,24,20,18,17],'L':[16,16,16,16,16,16,31],
+'M':[17,27,21,21,17,17,17],'N':[17,25,21,19,17,17,17],'O':[14,17,17,17,17,17,14],'P':[30,17,17,30,16,16,16],
+'Q':[14,17,17,17,21,18,13],'R':[30,17,17,30,20,18,17],'S':[15,16,16,14,1,1,30],'T':[31,4,4,4,4,4,4],
+'U':[17,17,17,17,17,17,14],'V':[17,17,17,17,17,10,4],'W':[17,17,17,21,21,21,10],'X':[17,17,10,4,10,17,17],
+'Y':[17,17,10,4,4,4,4],'Z':[31,1,2,4,8,16,31],
+'0':[14,17,19,21,25,17,14],'1':[4,12,4,4,4,4,14],'2':[14,17,1,2,4,8,31],'3':[30,1,1,14,1,1,30],
+'4':[2,6,10,18,31,2,2],'5':[31,16,16,30,1,1,30],'6':[14,16,16,30,17,17,14],'7':[31,1,2,4,8,8,8],
+'8':[14,17,17,14,17,17,14],'9':[14,17,17,15,1,1,14],
+' ':[0,0,0,0,0,0,0],'.':[0,0,0,0,0,12,12],',':[0,0,0,0,4,4,8],':':[0,12,12,0,12,12,0],
+'?':[14,17,1,2,4,0,4],'!':[4,4,4,4,4,0,4],'+':[0,4,4,31,4,4,0],'-':[0,0,0,31,0,0,0],
+'/':[1,2,2,4,8,8,16],'_':[0,0,0,0,0,0,31],'#':[10,31,10,10,31,10,0],'@':[14,17,23,21,23,16,14],
+'(':[2,4,8,8,8,4,2],')':[8,4,2,2,2,4,8],"'":[4,4,2,0,0,0,0],'=':[0,31,0,31,0,0,0],
+'^':[4,10,17,0,0,0,0],'V':[17,17,17,17,17,10,4],'|':[4,4,4,4,4,4,4],'>':[16,8,4,2,4,8,16],'<':[1,2,4,8,4,2,1]
+};
+function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(x,y,w,h)}
+function outline(x,y,w,h,color){ctx.strokeStyle=color;ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,w-1,h-1)}
+function text(value,x,y,color=C.ink,scale=1,max=99){ctx.fillStyle=color;let out=String(value??'').toUpperCase().slice(0,max),cx=x;for(const ch of out){const rows=F[ch]||F['?'];for(let ry=0;ry<7;ry++)for(let rx=0;rx<5;rx++)if(rows[ry]&(16>>rx))ctx.fillRect(cx+rx*scale,y+ry*scale,scale,scale);cx+=6*scale}}
+function centerText(value,x,w,y,color){text(value,x+Math.max(2,Math.floor((w-String(value).length*6)/2)),y,color)}
+function smallFace(x,y,kind){const black=C.ink,fill=kind==='A'?C.red:C.gold;rect(x-2,y-5,5,1,black);rect(x-4,y-4,9,1,black);rect(x-5,y-3,11,7,black);rect(x-4,y+4,9,1,black);rect(x-2,y+5,5,1,black);rect(x-2,y-4,5,1,fill);rect(x-3,y-3,7,1,fill);rect(x-4,y-2,9,5,fill);rect(x-3,y+3,7,1,fill);rect(x-2,y+4,5,1,fill);if(kind==='A'){rect(x-3,y-2,1,1,black);rect(x-2,y-1,1,1,black);rect(x+3,y-2,1,1,black);rect(x+2,y-1,1,1,black)}else if(kind==='W'){rect(x-3,y-1,3,1,black);rect(x+2,y-1,1,1,black)}else{rect(x-2,y-1,1,1,black);rect(x+2,y-1,1,1,black)}if(kind==='G'){rect(x-3,y+1,7,2,black)}else if(kind==='F'||kind==='A'){rect(x-1,y+1,3,1,black);rect(x-2,y+2,1,1,black);rect(x+2,y+2,1,1,black)}else{rect(x-2,y+1,1,1,black);rect(x+2,y+1,1,1,black);rect(x-1,y+2,3,1,black)}}
+function bigFace(x,y,kind){const black=C.ink,fill=kind==='A'?C.red:C.gold;rect(x-4,y-10,10,2,black);rect(x-8,y-8,18,2,black);rect(x-10,y-6,22,14,black);rect(x-8,y+8,18,2,black);rect(x-4,y+10,10,2,black);rect(x-4,y-8,10,2,fill);rect(x-6,y-6,14,2,fill);rect(x-8,y-4,18,10,fill);rect(x-6,y+6,14,2,fill);rect(x-4,y+8,10,2,fill);if(kind==='A'){rect(x-6,y-4,2,2,black);rect(x-4,y-2,2,2,black);rect(x+6,y-4,2,2,black);rect(x+4,y-2,2,2,black)}else if(kind==='W'){rect(x-6,y-2,6,2,black);rect(x+4,y-2,2,2,black)}else{rect(x-4,y-2,2,2,black);rect(x+4,y-2,2,2,black)}if(kind==='G'){rect(x-6,y+2,14,4,black)}else if(kind==='F'||kind==='A'){rect(x-2,y+2,6,2,black);rect(x-4,y+4,2,2,black);rect(x+4,y+4,2,2,black)}else{rect(x-4,y+2,2,2,black);rect(x+4,y+2,2,2,black);rect(x-2,y+4,6,2,black)}}
+function face(x,y,kind,size=8){if(size<=4)smallFace(Math.round(x),Math.round(y),kind);else bigFace(Math.round(x),Math.round(y),kind)}
+function drawConversationButton(){const m=ui(),y=m.chatY+2,size=m.mobile?24:21;rect(4,y,size,size,C.navy);outline(4,y,size,size,C.ink);rect(8,y+4,size-8,size-9,C.paper);outline(8,y+4,size-8,size-9,C.ink);rect(9,y+7,size-10,1,C.ink);rect(10,y+10,4,1,C.ink);rect(10,y+13,size-13,1,C.ink)}
+function tokenKind(value,index){return value[index]===':'&&'SGWFA'.includes(value[index+1]||'')&&value[index+2]===':'?value[index+1]:''}
+function faceText(value,x,y,color,max=48){let shown=String(value??'').slice(0,max),cx=x;for(let i=0;i<shown.length;){const kind=tokenKind(shown,i);if(kind){face(cx+8,y+3,kind,4);cx+=18;i+=3}else{text(shown[i],cx,y,color);cx+=6;i++}}}
+function button(x,w,label,color,key){const m=ui(),y=m.toolbarY+2,h=m.toolbarH-4;rect(x,y,w,h,pressed===key?C.paper:color);outline(x,y,w,h,C.ink);centerText(label,x,w,y+Math.floor((h-7)/2),pressed===key?C.ink:C.paper)}
+function senderColor(name){if(name.toUpperCase()===user.toUpperCase())return C.green;let hash=0;for(const ch of name.toUpperCase())hash=(hash+ch.charCodeAt(0))&255;return [C.cyan,C.violet,C.orange,C.rose,C.azure][hash%5]}
+function drawSoundIcon(){const y=phoneMode()?2:0;rect(216,7+y,4,5,C.paper);rect(220,5+y,2,9,C.paper);rect(222,4+y,2,11,C.paper);if(soundEnabled){rect(226,6+y,1,2,C.paper);rect(227,8+y,1,3,C.paper);rect(226,12+y,1,2,C.paper)}else{for(let i=0;i<12;i++)rect(215+i,3+y+i,2,2,C.red)}}
+// A browser cannot honestly report the X16's Wi-Fi state, so the old always-
+// green Wi-Fi glyph was removed. The SERVER ONLINE/OFFLINE status is the real
+// connectivity indicator for this public tester.
+function drawTop(){const m=ui();rect(0,0,320,m.top,C.navy);rect(0,0,202,m.top,C.paper);text('DESK COMMANDER',6,m.mobile?8:6,C.navy);drawSoundIcon();const now=new Date(),clock=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});text(clock,278,m.mobile?8:6,C.soft)}
+function drawHeader(){const m=ui(),y=m.toolbarY+2,h=m.toolbarH-4;rect(0,m.toolbarY,320,m.toolbarH,C.blue);button(2,43,'USER',C.navy,'user');button(47,43,'HOST',C.blue,'host');button(92,35,'+FR',C.green,'friend');button(129,43,'+GRP',C.gold,'group');button(174,35,'MEM',C.soft,'member');button(211,35,'DEL',C.red,'delete');button(248,43,'SYNC',C.navy,'sync');rect(293,y,25,h,C.red);outline(293,y,25,h,C.ink);centerText('X',293,25,y+Math.floor((h-7)/2),C.paper)}
+function chooserGeometry(){const m=ui();if(!m.mobile)return{mobile:false,x:12,y:61,w:290,h:145,closeX:281,closeY:65,friendX:23,friendY:96,friendW:126,friendStep:13,groupX:169,groupY:96,groupW:126,groupStep:20};const y=m.chatY+5,friendY=y+51,totalRows=Math.max(1,friends.length+groups.length),step=Math.max(15,Math.min(22,Math.floor((m.composerY-friendY-31)/totalRows))),groupY=friendY+friends.length*step+25;return{mobile:true,x:7,y,w:306,h:m.composerY-y-4,closeX:285,closeY:y+6,friendX:15,friendY,friendW:290,friendStep:step,groupX:15,groupY,groupW:290,groupStep:step,rowH:step-3}}
+function drawSidebar(){const g=chooserGeometry();rect(g.x+4,g.y+4,g.w,g.h,C.ink);rect(g.x,g.y,g.w,g.h,C.paper);outline(g.x,g.y,g.w,g.h,C.ink);rect(g.x+1,g.y+1,g.w-2,25,C.blue);text(g.mobile?'CHOOSE A CHAT':'CHOOSE A CONVERSATION',g.x+10,g.y+9,C.paper);rect(g.closeX,g.closeY,16,14,C.red);text('X',g.closeX+5,g.closeY+4,C.paper);if(g.mobile){text('FRIENDS',g.friendX,g.friendY-13,C.blue);for(let row=0;row<friends.length;row++){const y=g.friendY+row*g.friendStep,name=friends[row];rect(g.friendX,y,g.friendW,g.rowH,selectedKind==='F'&&selectedName===name?C.blue:C.navy);ctx.fillStyle=presence[name]==='online'?C.green:presence[name]==='away'?C.gold:C.red;ctx.beginPath();ctx.arc(g.friendX+8,y+Math.floor(g.rowH/2),4,0,Math.PI*2);ctx.fill();text(name,g.friendX+18,y+Math.max(3,Math.floor((g.rowH-7)/2)),C.paper,1,16)}text('GROUPS',g.groupX,g.groupY-13,C.blue);for(let row=0;row<groups.length;row++){const y=g.groupY+row*g.groupStep,name=groups[row];rect(g.groupX,y,g.groupW,g.rowH,selectedKind==='G'&&selectedName===name?C.blue:C.navy);outline(g.groupX+7,y+Math.max(3,Math.floor((g.rowH-7)/2)),7,7,C.soft);text(name,g.groupX+22,y+Math.max(3,Math.floor((g.rowH-7)/2)),C.paper,1,16)}return}text('FRIENDS',23,87,C.blue);text('GROUPS',169,87,C.blue);for(let row=0;row<8;row++){if(row>=friends.length)continue;const y=96+row*13,name=friends[row];rect(23,y,126,12,selectedKind==='F'&&selectedName===name?C.blue:C.navy);ctx.fillStyle=presence[name]==='online'?C.green:presence[name]==='away'?C.gold:C.red;ctx.beginPath();ctx.arc(30,y+6,3,0,Math.PI*2);ctx.fill();text(name,38,y+3,C.paper,1,16)}for(let row=0;row<4;row++){if(row>=groups.length)continue;const y=96+row*20,name=groups[row];rect(169,y,126,17,selectedKind==='G'&&selectedName===name?C.blue:C.navy);outline(177,y+5,7,7,C.soft);text(name,190,y+5,C.paper,1,16)}}
+function visibleCount(){const m=ui();return Math.max(2,Math.floor((m.statusY-m.messageY)/50))}
+function visibleMessages(){const end=Math.max(0,messages.length-messageOffset),start=Math.max(0,end-visibleCount());return messages.slice(start,end)}
+function wrapMessage(value){const message=String(value??'').slice(0,96);if(message.length<=48)return[message,''];let split=message.lastIndexOf(' ',48);if(split<24||message.length-split-1>48)split=48;for(let i=Math.max(0,split-2);i<split;i++)if(tokenKind(message,i)&&i+3>split){split=i;break}return[message.slice(0,split),message.slice(split).trimStart().slice(0,48)]}
+function drawMessages(){const m=ui();rect(0,m.chatY,320,m.height-m.chatY,C.paper);rect(0,m.chatY,320,m.chatH,C.soft);drawConversationButton();const labelY=m.chatY+9;if(!selectedName)text('CHOOSE CHAT',m.mobile?35:31,labelY,C.blue);else{text(selectedName,m.mobile?35:31,labelY,C.navy,1,28);text('^',246,labelY,C.blue);text('V',261,labelY,C.blue);text(messageOffset?'OLD':'NEW',276,labelY,C.blue)}visibleMessages().forEach((item,row)=>{const y=m.messageY+row*50,color=senderColor(item.from),lines=wrapMessage(item.text);text(item.from,8,y,color,1,16);rect(6,y+8,306,34,color);faceText(lines[0],12,y+13,C.paper);if(lines[1])faceText(lines[1],12,y+24,C.paper)});rect(6,m.statusY,306,12,C.paper);text(status,9,m.statusY+3,statusColor,1,48);drawComposer()}
+function drawComposer(){const m=ui(),y=m.composerY,h=m.composerH;rect(m.fieldX,y,m.fieldW,h,C.paper);outline(m.fieldX,y,m.fieldW,h,document.activeElement===capture?C.green:C.blue);const value=capture.value,maxChars=m.mobile?29:26;let start=Math.max(0,value.length-maxChars);if(start&&tokenKind(value,start-1))start--;else if(start>1&&tokenKind(value,start-2))start-=2;const shown=value.slice(start);if(shown)faceText(shown,m.fieldX+6,y+Math.floor((h-7)/2),C.ink,maxChars+2);else text('TYPE MESSAGE...',m.fieldX+6,y+Math.floor((h-7)/2),C.soft);rect(m.emojiX,y-1,m.emojiW,h+2,C.gold);outline(m.emojiX,y-1,m.emojiW,h+2,C.ink);face(m.emojiX+Math.floor(m.emojiW/2),y+Math.floor(h/2),'S',7);rect(m.sendX,y,m.sendW,h,pressed==='send'?C.paper:C.blue);outline(m.sendX,y,m.sendW,h,C.ink);centerText('SEND',m.sendX,m.sendW,y+Math.floor((h-7)/2),pressed==='send'?C.ink:C.paper)}
+function emojiGeometry(){const m=ui();return m.mobile?{x:12,y:Math.max(m.chatY+38,Math.floor((m.height-124)/2)),w:296,h:124,closeX:285,faceX:22,faceY:0,step:56,boxW:50,boxH:52}:{x:47,y:103,w:220,h:84,closeX:245,faceX:55,faceY:136,step:42,boxW:38,boxH:42}}
+function drawEmojiPicker(){const g=emojiGeometry();g.faceY=g.faceY||g.y+56;rect(g.x+4,g.y+4,g.w,g.h,C.ink);rect(g.x,g.y,g.w,g.h,C.paper);outline(g.x,g.y,g.w,g.h,C.ink);rect(g.x+1,g.y+1,g.w-2,27,C.blue);text('PICK A FACE',g.x+11,g.y+10,C.paper);rect(g.closeX,g.y+5,16,16,C.red);text('X',g.closeX+5,g.y+10,C.paper);['S','F','W','A','G'].forEach((kind,i)=>{const x=g.faceX+i*g.step;rect(x,g.faceY,g.boxW,g.boxH,C.soft);outline(x,g.faceY,g.boxW,g.boxH,C.ink);face(x+Math.floor(g.boxW/2),g.faceY+Math.floor(g.boxH/2),kind,10)})}
+function draw(){ctx.imageSmoothingEnabled=false;rect(0,0,320,canvas.height,C.paper);drawTop();drawHeader();drawMessages();if(chooserOpen)drawSidebar();if(emojiOpen)drawEmojiPicker()}
+function setStatus(message,color=C.blue){status=String(message).toUpperCase().slice(0,31);statusColor=color;draw()}
+function tone(frequency,duration=0.035,volume=0.025){if(!soundEnabled)return;const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;if(!audioContext)audioContext=new Audio();if(audioContext.state==='suspended')audioContext.resume();const oscillator=audioContext.createOscillator(),gain=audioContext.createGain(),now=audioContext.currentTime;oscillator.type='square';oscillator.frequency.setValueAtTime(frequency,now);gain.gain.setValueAtTime(volume,now);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);oscillator.connect(gain).connect(audioContext.destination);oscillator.start(now);oscillator.stop(now+duration)}
+function playClick(){tone(760,.025,.018)}
+function playSend(){tone(1050,.05,.026)}
+function playReceive(){tone(1380,.065,.028)}
+function toggleSound(){soundEnabled=!soundEnabled;localStorage.deskCommsSound=soundEnabled?'1':'0';draw();if(soundEnabled)playClick()}
+function api(path,options={}){return fetch(path,options).then(async response=>{const data=await response.json();if(!response.ok||data.ok===false)throw Error(data.error||`HTTP ${response.status}`);return data})}
+function post(action,body){return api('/api/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
+async function pulse(key,work){if(busy)return;pressed=key;draw();await new Promise(resolve=>setTimeout(resolve,90));pressed='';draw();try{busy=true;await work()}catch(error){setStatus(error.message,C.red)}finally{busy=false;draw()}}
+async function loadMessages(){if(!selectedName){messages=[];return}messages=await api(`/api/messages?user=${encodeURIComponent(user)}&kind=${selectedKind}&target=${encodeURIComponent(selectedName)}`);messageOffset=Math.min(messageOffset,Math.max(0,messages.length-visibleCount()))}
+async function sync(show=true){if(!user)return;if(show)setStatus('SYNCING...',C.gold);const priorChat=selectedKind+'|'+selectedName,priorMessages=JSON.stringify(messages);const [state]=await Promise.all([api('/api/state?user='+encodeURIComponent(user)),api('/api/heartbeat?user='+encodeURIComponent(user))]);friends=state.friends.slice(0,MAX_FRIENDS);groups=state.groups.slice(0,MAX_GROUPS);presence=state.presence||{};allUsers=state.allUsers||[];friendScroll=Math.min(friendScroll,Math.max(0,friends.length-4));groupScroll=Math.min(groupScroll,Math.max(0,groups.length-3));if(selectedName&&!((selectedKind==='F'?friends:groups).includes(selectedName))){selectedKind='';selectedName='';messages=[]}await loadMessages();const latest=messages[messages.length-1];if(selectedName&&priorChat===selectedKind+'|'+selectedName&&priorMessages!==JSON.stringify(messages)&&latest&&latest.from.toUpperCase()!==user.toUpperCase())playReceive();if(show)setStatus('SERVER ONLINE',C.green);draw()}
+async function connect(name){name=name.trim().toUpperCase().replace(/[^ -~]/g,'').slice(0,16);if(!name)throw Error('ENTER A USERNAME');if(name===ADMIN)throw Error('RODDY IS RESERVED');const account=await post('account',{user:name});user=name;localStorage.deskCommsUser=user;if(account.created)try{await post('friend',{user,target:ADMIN})}catch(error){status='CONNECTED - ADD RODDY';statusColor=C.gold}login.classList.add('hidden');await post('presence',{user,state:'online'});await sync(false);setStatus('SERVER ONLINE',C.green)}
+function ask(title,hint,max=16,value=''){const dialog=document.getElementById('entryDialog'),input=document.getElementById('dialogInput');document.getElementById('dialogTitle').textContent=title;document.getElementById('dialogHint').textContent=hint;input.maxLength=max;input.value=value;dialog.showModal();setTimeout(()=>input.focus(),30);return new Promise(resolve=>{dialog.onclose=()=>resolve(dialog.returnValue==='ok'?input.value.trim():'')})}
+function confirmRemove(title,message){const dialog=document.getElementById('confirmDialog');document.getElementById('confirmTitle').textContent=title;document.getElementById('confirmText').textContent=message;dialog.showModal();return new Promise(resolve=>{dialog.onclose=()=>resolve(dialog.returnValue==='ok')})}
+async function chooseConversation(kind,name){chooserOpen=false;selectedKind=kind;selectedName=name;messageOffset=0;capture.value='';capture.focus();setStatus('LOADING...',C.gold);await loadMessages();setStatus(messages.length?'CHAT LOADED':'CHAT READY',messages.length?C.green:C.blue)}
+function chooseEmoji(kind){if(capture.value.length>93){emojiOpen=false;setStatus('MESSAGE FULL',C.red);return}capture.value+=`:${kind}:`;emojiOpen=false;capture.focus();draw()}
+async function addFriend(){const known=allUsers.filter(name=>name!==user).slice(0,10).join(', '),name=(await ask('FRIEND USERNAME',known?'Known testers: '+known:'Enter the exact testing username.')).toUpperCase();if(!name)return;if(name===user)throw Error('CHOOSE ANOTHER USER');await post('friend',{user,target:name});await sync(false);setStatus('FRIEND SAVED',C.green)}
+async function createGroup(){const name=(await ask('NEW GROUP NAME','Create or join a shared group.')).toUpperCase();if(!name)return;await post('group',{user,target:name});await sync(false);setStatus('GROUP SAVED',C.green)}
+async function addMember(){if(selectedKind!=='G')throw Error('SELECT A GROUP FIRST');const name=(await ask('ADD FRIEND TO GROUP','Enter one of your saved friend names.')).toUpperCase();if(!name)return;await post('group-member',{user,target:selectedName,member:name});setStatus('MEMBER ADDED',C.green)}
+async function removeSelected(){if(!selectedName)throw Error('SELECT FRIEND OR GROUP');const was=selectedName,kind=selectedKind,ok=await confirmRemove(kind==='F'?'REMOVE FRIEND?':'LEAVE GROUP?',kind==='F'?`Remove ${was} and delete your private history?`:`Leave ${was}? The group is deleted if you are its final member.`);if(!ok)return;await post(kind==='F'?'friend-delete':'group-leave',{user,target:was});selectedKind='';selectedName='';messages=[];await sync(false);setStatus('REMOVED',C.green)}
+async function changeUser(){const name=await ask('CHANGE USER','Choose a different public-alpha identity.',16,user);if(name)await connect(name)}
+async function showHost(){await ask('OFFICIAL HOST','This browser uses the official Desk Commander server automatically.',16,'143.244.168.180')}
+async function send(){const value=capture.value.trim();if(!selectedName)throw Error('SELECT A CHAT FIRST');if(!value)return;setStatus('SENDING...',C.gold);await post('message',{user,kind:selectedKind,target:selectedName,text:value.slice(0,96)});capture.value='';messageOffset=0;await loadMessages();playSend();setStatus('MESSAGE SENT',C.green);capture.focus()}
+function scrollMessages(direction){if(!selectedName)return;if(direction<0&&messageOffset<Math.max(0,messages.length-visibleCount()))messageOffset++;if(direction>0&&messageOffset>0)messageOffset--;draw()}
+function point(event){const bounds=canvas.getBoundingClientRect();return{x:(event.clientX-bounds.left)*320/bounds.width,y:(event.clientY-bounds.top)*canvas.height/bounds.height}}
+async function logout(){if(user)post('presence',{user,state:'offline'}).catch(()=>{});user='';friends=[];groups=[];messages=[];selectedKind='';selectedName='';localStorage.removeItem('deskCommsUser');document.getElementById('loginName').value='';login.classList.remove('hidden');draw()}
+let ignoreClickUntil=0,touchStartY=0;
+canvas.addEventListener('click',event=>{if(performance.now()<ignoreClickUntil)return;const{x,y}=point(event),m=ui();if(y<m.top&&x>=208&&x<236){toggleSound();return}playClick();if(emojiOpen){const g=emojiGeometry();g.faceY=g.faceY||g.y+56;if(x>=g.closeX&&x<g.closeX+16&&y>=g.y+5&&y<g.y+21){emojiOpen=false;capture.focus();draw()}else if(x>=g.faceX&&x<g.faceX+g.step*5&&y>=g.faceY&&y<g.faceY+g.boxH){const index=Math.floor((x-g.faceX)/g.step);if(index<5)chooseEmoji(['S','F','W','A','G'][index])}return}if(chooserOpen){const g=chooserGeometry();if(x>=g.closeX&&x<g.closeX+16&&y>=g.closeY&&y<g.closeY+16){chooserOpen=false;draw()}else if(x>=g.friendX&&x<g.friendX+g.friendW&&y>=g.friendY&&y<g.friendY+g.friendStep*friends.length){const i=Math.floor((y-g.friendY)/g.friendStep);if(i<friends.length)pulse('',()=>chooseConversation('F',friends[i]))}else if(x>=g.groupX&&x<g.groupX+g.groupW&&y>=g.groupY&&y<g.groupY+g.groupStep*groups.length){const i=Math.floor((y-g.groupY)/g.groupStep);if(i<groups.length)pulse('',()=>chooseConversation('G',groups[i]))}return}const buttonY=m.toolbarY+2,buttonH=m.toolbarH-4;if(y>=buttonY&&y<buttonY+buttonH){if(x>=2&&x<45)pulse('user',changeUser);else if(x>=47&&x<90)pulse('host',showHost);else if(x>=92&&x<127)pulse('friend',addFriend);else if(x>=129&&x<172)pulse('group',createGroup);else if(x>=174&&x<209)pulse('member',addMember);else if(x>=211&&x<246)pulse('delete',removeSelected);else if(x>=248&&x<291)pulse('sync',()=>sync(true));else if(x>=293&&x<318)logout();return}if(y>=m.chatY&&y<m.chatY+m.chatH&&x>=245&&x<260){scrollMessages(-1);return}if(y>=m.chatY&&y<m.chatY+m.chatH&&x>=260&&x<275){scrollMessages(1);return}if(x>=4&&x<(m.mobile?28:25)&&y>=m.chatY+2&&y<m.chatY+m.chatH){chooserOpen=true;capture.blur();draw();return}if(x>=m.emojiX&&x<m.emojiX+m.emojiW&&y>=m.composerY-1&&y<m.composerY+m.composerH+1){emojiOpen=true;capture.blur();draw();return}if(x>=m.sendX&&y>=m.composerY&&y<m.composerY+m.composerH){pulse('send',send);return}if(x>=m.fieldX&&x<m.fieldX+m.fieldW&&y>=m.composerY&&y<m.composerY+m.composerH)capture.focus()});
+canvas.addEventListener('wheel',event=>{event.preventDefault();if(!chooserOpen)scrollMessages(event.deltaY>0?1:-1)},{passive:false});
+canvas.addEventListener('touchstart',event=>{touchStartY=event.changedTouches[0].clientY},{passive:true});
+canvas.addEventListener('touchend',event=>{const distance=event.changedTouches[0].clientY-touchStartY;if(Math.abs(distance)>34&&!chooserOpen&&!emojiOpen){ignoreClickUntil=performance.now()+400;scrollMessages(distance>0?-1:1)}},{passive:true});
+capture.addEventListener('input',draw);capture.addEventListener('focus',draw);capture.addEventListener('blur',draw);capture.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();pulse('send',send)}});
+document.getElementById('connectButton').onclick=async()=>{const name=document.getElementById('loginName').value,box=document.getElementById('loginStatus');box.textContent='CONNECTING...';try{await connect(name);box.textContent=''}catch(error){box.textContent=error.message}};
+document.getElementById('loginName').addEventListener('keydown',event=>{if(event.key==='Enter')document.getElementById('connectButton').click()});
+document.getElementById('dialogInput').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();document.getElementById('entryDialog').close('ok')}});
+document.addEventListener('click',event=>{if(event.target.closest('button'))playClick()});
+document.addEventListener('visibilitychange',()=>{if(!user)return;post('presence',{user,state:document.hidden?'away':'online'}).catch(()=>{})});
+setInterval(()=>{draw();if(user&&!busy&&!document.hidden)sync(false).catch(()=>setStatus('SERVER OFFLINE',C.red))},5000);
+let layoutWidth=innerWidth,layoutPhone=phoneMode();addEventListener('resize',()=>{const changed=Math.abs(innerWidth-layoutWidth)>2||phoneMode()!==layoutPhone;if(!changed)return;layoutWidth=innerWidth;layoutPhone=phoneMode();requestAnimationFrame(configureCanvas)});
+requestAnimationFrame(configureCanvas);const saved=localStorage.deskCommsUser;if(saved){document.getElementById('loginName').value=saved;connect(saved).catch(error=>{document.getElementById('loginStatus').textContent=error.message})}
+</script>
+</body>
+</html>
