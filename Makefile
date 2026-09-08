@@ -39,13 +39,15 @@ COMMS_VISUAL  := ZZCHATUI.BIN
 COMMS_EMOJI   := ZZEMOJI.BIN
 SCREEN_SAVER  := ZZSCREEN.BIN
 ROLODEX_APP   := ZZROLO.BIN
+ORGANIZER_EXTRAS := ZZORGX.BIN
 
 # Bank map for the loadable files above:
 #   4 Files, 5 file operations, 6 editor, 7 network, 8 market UI,
 #   9 market network worker, 10 persistence, 11 Notes, 12 Comms,
 #   13 scrollable Wi-Fi picker, 14 external PRG launcher, 15 chat network,
 #   16 chat transcript renderer, 17 AIM-style emoji artwork,
-#   18 Deep Space screensaver, 19 Desk Directory. Compact dashboard artwork
+#   18 Deep Space screensaver, 19 Desk Directory, 20 organizer dialogs.
+#   Compact dashboard artwork
 #   stays in conventional RAM because the Directory move left safe room below
 #   $9800.
 # The filenames use 8.3-safe names so the same build works with HostFS and SD.
@@ -66,7 +68,7 @@ NET_DEPS     := $(SOURCE_DIR)/network_driver.p8 $(SOURCE_DIR)/network_mailbox.p8
 
 all: $(PROGRAM) $(SHORTCUT) $(AUTOBOOT) $(FILE_MANAGER) $(FILE_OPERATIONS) $(TEXT_EDITOR) $(PROGRAM_LAUNCHER) \
 	$(NETWORK_APP) $(NETWORK_PICKER) $(MARKET_APP) $(MARKET_NETWORK) $(STATE_STORE) \
-	$(NOTES_APP) $(COMMS_APP) $(CHAT_NETWORK) $(COMMS_VISUAL) $(COMMS_EMOJI) $(SCREEN_SAVER) $(ROLODEX_APP)
+	$(NOTES_APP) $(COMMS_APP) $(CHAT_NETWORK) $(COMMS_VISUAL) $(COMMS_EMOJI) $(SCREEN_SAVER) $(ROLODEX_APP) $(ORGANIZER_EXTRAS)
 
 setup:
 	./tools/setup-toolchain.sh
@@ -148,6 +150,17 @@ $(ROLODEX_APP): $(SOURCE_DIR)/rolodex_overlay.p8 $(SOURCE_DIR)/rolodex_app.p8 $(
 		-asmlist \
 		"$(SOURCE_DIR)/rolodex_overlay.p8"
 	@cp "$(BUILD_DIR)/rolodex_overlay.bin" "$(ROLODEX_APP)"
+
+$(ORGANIZER_EXTRAS): $(SOURCE_DIR)/organizer_extras_overlay.p8 $(SOURCE_DIR)/organizer_extras.p8 $(INPUT_DEPS) | $(BUILD_DIR)
+	@echo "Building ORGANIZER helper overlay..."
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-out "$(BUILD_DIR)" \
+		-asmlist \
+		"$(SOURCE_DIR)/organizer_extras_overlay.p8"
+	@cp "$(BUILD_DIR)/organizer_extras_overlay.bin" "$(ORGANIZER_EXTRAS)"
 
 $(NETWORK_APP): $(SOURCE_DIR)/network_overlay.p8 $(SOURCE_DIR)/network_app.p8 $(NET_DEPS) $(INPUT_DEPS) | $(BUILD_DIR)
 	@echo "Building TEXELEC NETWORK overlay..."
@@ -316,6 +329,12 @@ check:
 		-target cx16 \
 		-srcdirs "$(SOURCE_DIR)" \
 		-check \
+		"$(SOURCE_DIR)/organizer_extras_overlay.p8"
+	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
+		"$(JAVA)" -jar "$(PROG8_JAR)" \
+		-target cx16 \
+		-srcdirs "$(SOURCE_DIR)" \
+		-check \
 		"$(SOURCE_DIR)/network_overlay.p8"
 	@PATH="$(TOOLS_DIR)/bin:$$PATH" \
 		"$(JAVA)" -jar "$(PROG8_JAR)" \
@@ -401,7 +420,7 @@ sdcard: all
 		"$(NETWORK_APP)" "$(NETWORK_PICKER)" "$(MARKET_APP)" "$(MARKET_NETWORK)" \
 		"$(STATE_STORE)" "$(NOTES_APP)" "$(SDCARD_DIR)/"
 	@cp "$(COMMS_APP)" "$(CHAT_NETWORK)" "$(COMMS_VISUAL)" "$(COMMS_EMOJI)" \
-		"$(SCREEN_SAVER)" "$(ROLODEX_APP)" "$(SDCARD_DIR)/"
+		"$(SCREEN_SAVER)" "$(ROLODEX_APP)" "$(ORGANIZER_EXTRAS)" "$(SDCARD_DIR)/"
 	@echo "Ready: $(SDCARD_DIR)"
 
 clean:
@@ -430,6 +449,10 @@ clean:
 	      "$(BUILD_DIR)/rolodex_overlay.bin" \
 	      "$(BUILD_DIR)/rolodex_overlay.list" \
 	      "$(BUILD_DIR)/rolodex_overlay.vice-mon-list" \
+	      "$(BUILD_DIR)/organizer_extras_overlay.asm" \
+	      "$(BUILD_DIR)/organizer_extras_overlay.bin" \
+	      "$(BUILD_DIR)/organizer_extras_overlay.list" \
+	      "$(BUILD_DIR)/organizer_extras_overlay.vice-mon-list" \
 	      "$(BUILD_DIR)/network_overlay.asm" \
 	      "$(BUILD_DIR)/network_overlay.bin" \
 	      "$(BUILD_DIR)/network_overlay.list" \
@@ -490,4 +513,5 @@ clean:
 	      "$(COMMS_EMOJI)" \
 	      "$(SCREEN_SAVER)" \
 	      "$(ROLODEX_APP)" \
+	      "$(ORGANIZER_EXTRAS)" \
 	      "FILEMAN.BIN"

@@ -13,6 +13,7 @@
 ; Save commits both fields, while Cancel/Escape leaves the old note untouched.
 
 notes_app {
+    extsub @bank 20 $a000 = open_note_reader() clobbers(X, Y) -> bool @A
     const ubyte NOTE_COUNT = 6
     const ubyte VISIBLE_ROWS = 4
     const ubyte TITLE_SIZE = 22
@@ -447,13 +448,21 @@ notes_app {
 
     sub activate_focus() -> bool {
         when focus_item {
-            FOCUS_LIST -> edit_note(false)
+            FOCUS_LIST -> view_note()
             FOCUS_ADD -> edit_note(true)
             FOCUS_EDIT -> edit_note(false)
             FOCUS_DELETE -> delete_selected_note()
             FOCUS_DONE -> return true
         }
         return false
+    }
+
+    sub view_note() {
+        if note_active[selected_note - 1] == 0
+            return
+        state_data.organizer_index = selected_note
+        if open_note_reader()
+            edit_note(false)
     }
 
     sub open() {
@@ -478,6 +487,10 @@ notes_app {
                     focus_item = FOCUS_LIST
                     draw_note_rows()
                     draw_actions()
+                    if note_active[selected_note - 1] != 0 {
+                        view_note()
+                        draw_window()
+                    }
                 } else if input.inside(41, 179, 42, 16) {
                     focus_item = FOCUS_ADD
                     edit_note(true)

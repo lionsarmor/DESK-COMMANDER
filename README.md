@@ -34,11 +34,12 @@ distinctly retro.
 
 ### Organizer applications
 
-- **📝 Notes:** maintain six titled, multiline notes in a scrollable list.
+- **📝 Notes:** maintain six titled, multiline notes in a scrollable list and
+  open them safely in a read-only reader before choosing Edit.
 - **📅 Calendar:** browse months and add, view, edit, or delete color-coded
   appointments, tasks, and personal events.
 - **📇 Desk Directory:** add, edit, search, scroll, inspect, and delete saved contact cards
-  with name, role, phone, email, and social fields.
+  with name, role, phone, a 47-character email field, and social fields.
 - **🧮 Calculator:** perform mouse- or keyboard-driven arithmetic with decimals.
 - **📁 Files:** browse device 8, enter folders, create files or directories,
   rename, move, delete, edit text, and launch X16 programs.
@@ -71,9 +72,9 @@ distinctly retro.
 | Application | Available now | Important V1 work remaining |
 |---|---|---|
 | Desktop | App rail, glance panels, clock, sound/Wi-Fi status, keyboard selection | Connect glance notes to full Notes data; finish keyboard focus |
-| Notes | Six persistent titled multiline notes, transactional Add/Edit/Delete, keyboard focus, scrolling | Word-aware wrapping, undo, import/export |
+| Notes | Six persistent titled multiline notes, read-only Open, explicit Edit, transactional Add/Delete, keyboard focus, scrolling | Word-aware wrapping, undo, import/export |
 | Calendar | Month navigation and 24 persistent editable events | Multiple events per day, agenda, recurrence, reminders, RTC Today |
-| Desk Directory | Blank first run; search, scrolling, detailed cards, transactional Add/Edit/Delete, four persistent custom contacts | Larger capacity, sorting, duplicate, import/export |
+| Desk Directory | Blank first run; search, scrolling, detailed cards, transactional Add/Edit/Delete, safe legacy-record migration, 47-character email addresses | Larger capacity, sorting, duplicate, import/export |
 | Calculator | Arithmetic, decimals, backspace, divide-by-zero handling | Memory keys and final edge-case testing |
 | File Manager | Real device-8 browsing, file/folder operations, text open, and protected PRG/AUTOBOOT launch | Copy, destination browser, filters, richer error handling |
 | Text Editor ++ | Multiline editing, Save, Save As, mouse placement | Find, clipboard, undo, larger documents, safer replacement saves |
@@ -179,9 +180,9 @@ recommend VERA 48.0.1 and SMC 48.0.0 or 47.2.3.
   `R` renames, `M` moves, `D` deletes, and `U` goes up.
 - **Text Editor ++:** type normally; `F2` saves, `F4` opens Save As, and `Esc`
   closes with an unsaved-work check.
-- **Notes:** arrows select a slot; `Tab` moves visible focus across the list and
-  Add/Edit/Delete/Done; `Enter` activates it. In the body editor, `Tab` reaches
-  Save or Cancel and `Enter` activates the focused choice.
+- **Notes:** click a populated row or select it with arrows and press `Enter` to
+  open the read-only reader. Choose Edit there to make changes. `Tab` also
+  reaches Add/Edit/Delete/Done.
 - **Desk Directory:** type to filter, use arrows/wheel to select, `Enter` edits,
   `Insert` adds, and `Delete` twice deletes when the search field is empty.
 - **Network Setup:** `D` detects, `W` scans, `J` joins, `I` checks status, and

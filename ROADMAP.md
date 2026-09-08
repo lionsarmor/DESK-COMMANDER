@@ -51,9 +51,9 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 | Splash and desktop | ✅ | Branded splash, icon rail, glance panels, clock, status icons, mouse and arrow-key launching |
 | Themes and pointer | ✅ | Three saved themes and three saved pointer styles |
 | Sound and clock | ✅ | Saved sound toggle, interface/chat sounds, and working 12/24-hour display |
-| Notes | 🟡 | Six titled multiline notes with transactional editing, delete confirmation, keyboard focus, and dirty-region scrolling |
+| Notes | 🟡 | Six titled multiline notes with read-only Open, explicit editing, delete confirmation, keyboard focus, and dirty-region scrolling |
 | Calendar | 🟡 | Month navigation and 24 saved editable color-coded events |
-| Desk Directory | 🟡 | Searchable/scrollable cards with complete Add/Edit/Delete and four persistent custom contacts |
+| Desk Directory | 🟡 | Searchable/scrollable cards with complete Add/Edit/Delete, 47-character email storage, and safe Alpha-record migration |
 | Calculator | ✅ | Mouse and keyboard arithmetic, decimals, backspace, and divide-by-zero handling |
 | File Manager | 🟡 | Real device-8 browsing, file/folder creation, rename, move, delete, text open, and PRG launch |
 | Text Editor ++ | 🟡 | 2 KB multiline editor, mouse placement, Save, Save As, and dirty-file warning |
@@ -197,6 +197,7 @@ toolbars, dialogs, mouse control, and keyboard navigation. The old decorative
 - [x] Add and immediately save four complete user-created contact cards.
 - [x] Store name, role/organization, phone, email, and social handle.
 - [x] Add transactional Edit and confirmed Delete workflows.
+- [x] Expand email storage to 47 characters and migrate existing Alpha cards.
 - [ ] Add Duplicate.
 - [ ] Expand user-created capacity and add address and notes.
 - [ ] Sort alphabetically and preserve selection while filtering.

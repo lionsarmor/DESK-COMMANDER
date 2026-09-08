@@ -82,11 +82,15 @@ desktop {
     }
 
     sub load_notes() -> bool {
-        return load_bank(iso:"ZZNOTES.BIN", 11)
+        bool loaded = load_bank(iso:"ZZNOTES.BIN", 11)
+        if not load_bank(iso:"ZZORGX.BIN", 20) loaded = false
+        return loaded
     }
 
     sub load_rolodex() -> bool {
-        return load_bank(iso:"ZZROLO.BIN", 19)
+        bool loaded = load_bank(iso:"ZZROLO.BIN", 19)
+        if not load_bank(iso:"ZZORGX.BIN", 20) loaded = false
+        return loaded
     }
 
     sub load_comms() -> bool {

@@ -33,9 +33,10 @@ state_data {
     ; history live on the chat server and are fetched into a separate cache.
     const uword COMMS = BASE + 850
 
-    ; Four 88-byte user-created Desk Directory cards occupy offsets 904..1255.
-    ; Comms may use offsets through 902; Market begins at offset 1280.
-    const uword ROLODEX_CUSTOM = BASE + 904
+    ; Alpha's four 88-byte Directory cards occupied offsets 904..1255.
+    const uword ROLODEX_CUSTOM_OLD = BASE + 904
+    ; Current Directory cards have room for a 47-character email address.
+    const uword ROLODEX_CUSTOM = BASE + $0b00
 
     ; Market Watch owns the final 768 bytes, offsets 1280..2047.
     const uword MARKET = BASE + $0500
@@ -49,6 +50,8 @@ state_data {
     ; needed on each HTTPS request but is never displayed after entry.
     const uword COMMS_SECRET = BASE + $0a90 ; 25 bytes, offsets 2704..2728
 
+    ; Current four 116-byte Directory cards occupy offsets 2816..3279.
+
     ; Fixed golden-RAM mailbox used by the banked bulk-copy routines.
     &uword transfer_memory = $0750
     &uword transfer_vram = $0752
@@ -60,6 +63,8 @@ state_data {
     &uword transfer_memory_6 = $076a
     &uword transfer_memory_7 = $076c
     &uword transfer_memory_8 = $076e
+    &ubyte organizer_index = $0770
+    &ubyte organizer_creating = $0771
 
     ; Reserved one-way PRG runner. It sits immediately after the compiler's
     ; current Golden-RAM BSS and below the persistence mailboxes. External app

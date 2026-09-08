@@ -13,6 +13,8 @@
 ; save as soon as they complete. A fresh installation starts empty.
 
 rolodex_app {
+    extsub @bank 20 $a003 = edit_long_email() clobbers(X, Y) -> bool @A
+    extsub @bank 20 $a006 = migrate_directory_records() clobbers(A, X, Y)
     const ubyte CUSTOM_COUNT = 4
     const ubyte CONTACT_COUNT = CUSTOM_COUNT
     const ubyte NO_CONTACT = 255
@@ -21,10 +23,9 @@ rolodex_app {
     const ubyte CUSTOM_ROLE = 17
     const ubyte CUSTOM_PHONE = 34
     const ubyte CUSTOM_EMAIL = 51
-    const ubyte CUSTOM_SOCIAL = 71
-    const ubyte CUSTOM_RECORD_SIZE = 88
+    const ubyte CUSTOM_SOCIAL = 99
+    const ubyte CUSTOM_RECORD_SIZE = 116
     const uword CUSTOM_STATE = state_data.ROLODEX_CUSTOM
-    const uword OLD_CUSTOM_STATE = state_data.BASE + 900
     const uword EDIT_BACKUP = $7e00
 
     ; Keep the complete footer hint clear of the action buttons. These shared
@@ -55,9 +56,14 @@ rolodex_app {
         if initialized
             return
 
-        if state_data.read(state_data.ROLODEX) == $a8 {
+        if state_data.read(state_data.ROLODEX) == $a9 {
             state_data.restore(state_data.ROLODEX + 1, &contact_active,
                                CONTACT_COUNT)
+        } else if state_data.read(state_data.ROLODEX) == $a8 {
+            state_data.restore(state_data.ROLODEX + 1, &contact_active,
+                               CONTACT_COUNT)
+            migrate_directory_records()
+            save_state()
         } else {
             for contact in 0 to CONTACT_COUNT - 1
                 contact_active[contact] = 0
@@ -67,7 +73,7 @@ rolodex_app {
     }
 
     sub save_state() {
-        state_data.write(state_data.ROLODEX, $a8)
+        state_data.write(state_data.ROLODEX, $a9)
         state_data.store(&contact_active, state_data.ROLODEX + 1,
                          CONTACT_COUNT)
         state_data.save()
@@ -462,12 +468,15 @@ rolodex_app {
         }
         save_custom_value(contact, CUSTOM_PHONE, 16)
 
-        prepare_field(contact, CUSTOM_EMAIL, 19, creating)
-        if not ask_field(iso:"CONTACT 4/5", iso:"EMAIL", 19, false) {
+        state_data.organizer_index = contact
+        if creating
+            state_data.organizer_creating = 1
+        else
+            state_data.organizer_creating = 0
+        if not edit_long_email() {
             restore_record(contact)
             return
         }
-        save_custom_value(contact, CUSTOM_EMAIL, 19)
 
         prepare_field(contact, CUSTOM_SOCIAL, 16, creating)
         if not ask_field(iso:"CONTACT 5/5", iso:"SOCIAL HANDLE", 16, false) {
